@@ -245,6 +245,36 @@ def confirm_password_reset(session: Session, cfg: Config,
     rc.durable().delete(rc.key_login_failures(user.id))
 
 
+def change_password(session: Session, cfg: Config, user_id: str, *,
+                    current_password: str, new_password: str) -> None:
+    """Logged-in password change from Settings. Requires the current password
+    rather than an emailed token — the user is already proven to hold a valid
+    session, so this is the direct equivalent of confirm_password_reset above,
+    minus the token.
+    """
+    user = session.get(User, user_id)
+    if user is None or not user.is_active:
+        raise ValidationError("Account not found.")
+    if not verify_password(user.password_hash, current_password):
+        raise ValidationError("Current password is incorrect.")
+
+    validate_password(
+        new_password,
+        min_length=cfg.password_min_length,
+        breach_check=cfg.breach_check_enabled,
+    )
+
+    user.password_hash = hash_password(new_password)
+
+    # Same treatment as a reset (1.9): changing a password is exactly the
+    # moment to kill any other live session, in case the old password had
+    # already leaked. This device's refresh token is revoked too — signing
+    # in again with the new password is the expected next step.
+    tk.revoke_all_refresh_tokens(session, user.id)
+    tk.set_tokens_valid_after(user.id)
+    rc.durable().delete(rc.key_login_failures(user.id))
+
+
 # --- Account deletion ------------------------------------------------------
 
 def delete_account(session: Session, user_id: str, *, pitr_days: int = 35) -> None:

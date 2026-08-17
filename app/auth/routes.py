@@ -138,6 +138,21 @@ def password_reset_confirm():
     return jsonify({"status": "password_updated"})
 
 
+@bp.post("/change-password")
+@require_auth
+def change_password():
+    """Settings > change password. Requires the current password, not a token."""
+    data = _body()
+    cfg = current_app.config["APP_CONFIG"]
+    with session_scope() as session:
+        service.change_password(
+            session, cfg, g.user_id,
+            current_password=data.get("current_password", ""),
+            new_password=data.get("new_password", ""),
+        )
+    return jsonify({"status": "password_updated"})
+
+
 account_bp = Blueprint("account", __name__, url_prefix="/v1")
 
 
