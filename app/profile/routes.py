@@ -1,6 +1,8 @@
 """HTTP surface for Modules 3, 4, 6, 13, 14."""
 from __future__ import annotations
 
+from datetime import date
+
 from flask import Blueprint, g, jsonify, request
 
 from app.gateway.middleware import require_auth
@@ -122,6 +124,24 @@ def log():
                 client_entry_id=e.get("client_entry_id"),
             ))
         return jsonify({"logged": out, "streak": service.streak(s, g.user_id)}), 201
+
+
+@bp.get("/dashboard/trend")
+@require_auth
+def dashboard_trend():
+    """4.3 — flexible trend window: ?days=15 or ?start=YYYY-MM-DD&end=YYYY-MM-DD."""
+    start_str = request.args.get("start")
+    end_str = request.args.get("end")
+    days_str = request.args.get("days")
+    try:
+        start_date = date.fromisoformat(start_str) if start_str else None
+        end_date = date.fromisoformat(end_str) if end_str else None
+        days = int(days_str) if days_str else None
+    except ValueError:
+        raise ValidationError("start/end must be YYYY-MM-DD; days must be an integer.")
+    with session_scope() as s:
+        return jsonify({"trend": service.trend(
+            s, g.user_id, days=days, start_date=start_date, end_date=end_date)})
 
 
 @bp.get("/dashboard/summary")

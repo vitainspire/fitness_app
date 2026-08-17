@@ -147,11 +147,23 @@ tailwind.config = { theme: { extend: {
     <!-- chart -->
     <section class="space-y-md">
       <div class="flex justify-between items-center">
-        <h3 class="font-headline-sm text-headline-sm text-on-surface">This Week</h3>
+        <h3 id="h-trend-title" class="font-headline-sm text-headline-sm text-on-surface">Trend — 7 Days</h3>
         <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
           <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
           <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
         </div>
+      </div>
+      <div class="flex gap-xs flex-wrap">
+        <button onclick="setTrendRange(7, this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-primary-fixed/20 border-primary-fixed text-on-primary-fixed-variant">7d</button>
+        <button onclick="setTrendRange(15, this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant">15d</button>
+        <button onclick="setTrendRange(30, this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant">30d</button>
+        <button onclick="toggleCustomRange(this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant">Custom</button>
+      </div>
+      <div id="h-custom-range" class="hidden flex items-center gap-sm flex-wrap">
+        <input id="h-custom-start" type="date" class="bg-surface-container-low border-none rounded-lg px-sm py-xs font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+        <span class="font-body-md text-on-surface-variant">to</span>
+        <input id="h-custom-end" type="date" class="bg-surface-container-low border-none rounded-lg px-sm py-xs font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+        <button onclick="applyCustomRange()" class="bg-primary text-on-primary px-md py-xs rounded-full font-label-bold text-label-bold hover:opacity-90">Go</button>
       </div>
       <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
         <div class="flex h-40">
@@ -486,6 +498,49 @@ async function submitOnboarding() {
   }
 }
 
+// ── trend chart (4.3 — 7d/15d/30d + custom range) ──
+function renderTrend(days) {
+  const max = Math.max(1, ...days.map(w => w.count));
+  const top = Math.max(2, Math.ceil(max / 2) * 2);
+  $("h-yaxis").innerHTML = [top, Math.round(top/2), 0].map(v => `<span>${v}</span>`).join("");
+  $("h-bars").innerHTML = days.map(w =>
+    `<div class="w-full bg-[#419E4B] rounded-t-md" style="height:${w.count?Math.max(6,(w.count/top)*100):2}%;opacity:${w.count?1:.25}"></div>`).join("");
+  $("h-days").innerHTML = days.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
+}
+
+function markActiveTrendBtn(btn) {
+  document.querySelectorAll(".trend-btn").forEach(b => {
+    b.className = "trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant";
+  });
+  btn.className = "trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-primary-fixed/20 border-primary-fixed text-on-primary-fixed-variant";
+}
+
+async function setTrendRange(n, btn) {
+  $("h-custom-range").classList.add("hidden");
+  markActiveTrendBtn(btn);
+  $("h-trend-title").textContent = "Trend — " + n + " Days";
+  try {
+    const d = await api("GET", `/v1/dashboard/trend?days=${n}`);
+    renderTrend(d.trend);
+  } catch (e) { toast(e.message, true); }
+}
+
+function toggleCustomRange(btn) {
+  markActiveTrendBtn(btn);
+  $("h-custom-range").classList.remove("hidden");
+}
+
+async function applyCustomRange() {
+  const start = $("h-custom-start").value;
+  const end = $("h-custom-end").value;
+  if (!start || !end) { toast("Pick both a start and end date", true); return; }
+  try {
+    const d = await api("GET", `/v1/dashboard/trend?start=${start}&end=${end}`);
+    $("h-trend-title").textContent = "Trend — " + start + " to " + end;
+    renderTrend(d.trend);
+  } catch (e) { toast(e.message, true); }
+}
+
 // ── activity screen ──
 async function loadHome() {
   $("h-avatar").textContent = (EMAIL[0] || "?").toUpperCase();
@@ -493,14 +548,7 @@ async function loadHome() {
 
   const d = await api("GET", "/v1/dashboard/summary");
   $("h-streak").textContent = d.streak.current + " Day Streak";
-
-  // chart with a real y-axis
-  const max = Math.max(1, ...d.week.map(w => w.count));
-  const top = Math.max(2, Math.ceil(max / 2) * 2);
-  $("h-yaxis").innerHTML = [top, Math.round(top/2), 0].map(v => `<span>${v}</span>`).join("");
-  $("h-bars").innerHTML = d.week.map(w =>
-    `<div class="w-full bg-[#419E4B] rounded-t-md" style="height:${w.count?Math.max(6,(w.count/top)*100):2}%;opacity:${w.count?1:.25}"></div>`).join("");
-  $("h-days").innerHTML = d.week.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
+  renderTrend(d.week);
 
   const items = d.suggestions.all_items || [];
   HOME_ITEMS = items;

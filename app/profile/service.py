@@ -490,22 +490,53 @@ def streak(session: Session, user_id: str) -> dict:
             "active_days": len(days)}
 
 
-def weekly_volume(session: Session, user_id: str) -> list[dict]:
-    """Seven days of logged volume for the dashboard chart."""
+MAX_TREND_DAYS = 365
+
+
+def trend(session: Session, user_id: str, *, days: int | None = None,
+          start_date: date | None = None, end_date: date | None = None) -> list[dict]:
+    """4.3 — logged-activity counts over an arbitrary window.
+
+    Either pass `days` (counts back from today, inclusive) or an explicit
+    start_date/end_date pair for a custom range. weekly_volume below is just
+    this with days=7, so the original 7-day dashboard chart is unchanged.
+    """
     today = today_ist()
-    start = today - timedelta(days=6)
+    if start_date is not None or end_date is not None:
+        if start_date is None or end_date is None:
+            raise ValidationError("start_date and end_date must both be provided together.")
+        if start_date > end_date:
+            raise ValidationError("start_date must be on or before end_date.")
+        if end_date > today:
+            end_date = today
+        if (end_date - start_date).days + 1 > MAX_TREND_DAYS:
+            raise ValidationError(f"Custom range cannot exceed {MAX_TREND_DAYS} days.")
+        start, end = start_date, end_date
+    else:
+        n = days if days is not None else 7
+        if n < 1 or n > MAX_TREND_DAYS:
+            raise ValidationError(f"days must be between 1 and {MAX_TREND_DAYS}.")
+        start, end = today - timedelta(days=n - 1), today
+
     rows = session.execute(
         select(ActivityLog.local_date, func.count())
         .where(ActivityLog.user_id == user_id,
                ActivityLog.local_date >= start,
+               ActivityLog.local_date <= end,
                ActivityLog.implausible.is_(False))
         .group_by(ActivityLog.local_date)
     ).all()
     counts = {d: n for d, n in rows}
+    span = (end - start).days + 1
     return [{"date": (start + timedelta(days=i)).isoformat(),
              "label": (start + timedelta(days=i)).strftime("%a")[0],
              "count": counts.get(start + timedelta(days=i), 0)}
-            for i in range(7)]
+            for i in range(span)]
+
+
+def weekly_volume(session: Session, user_id: str) -> list[dict]:
+    """Seven days of logged volume for the dashboard chart (unchanged, 4.3)."""
+    return trend(session, user_id, days=7)
 
 
 # --- Suggestions + videos --------------------------------------------------
