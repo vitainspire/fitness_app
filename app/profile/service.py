@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.catalog.models import ActivityTaxonomy, Condition, SafetyGridCell, VideoCatalog
 from app.platform.errors import Forbidden, NotFound, ValidationError
 from app.profile.models import (
-    ActivityLog, OverrideConsent, UserCondition, UserProfile, UserProgram,
+    ActivityLog, CustomExercise, OverrideConsent, UserCondition, UserProfile, UserProgram,
 )
 
 IST = timezone(timedelta(hours=5, minutes=30))  # single market (3.3)
@@ -399,31 +399,57 @@ def _tier_slice(items_by_priority: list[dict], band: str) -> tuple[set[str], set
 
 # --- Logging ---------------------------------------------------------------
 
-def log_activity(session: Session, user_id: str, *, activity_type: str,
-                 amount: float, sets: int = 1, unit: str | None = None,
-                 source: str = "manual", client_entry_id: str | None = None) -> dict:
-    row = session.get(ActivityTaxonomy, activity_type)
-    if row is None:
-        raise NotFound(f"Unknown activity: {activity_type}")
+def log_activity(session: Session, user_id: str, *, activity_type: str | None = None,
+                 custom_exercise_id: str | None = None, amount: float, sets: int = 1,
+                 unit: str | None = None, source: str = "manual",
+                 client_entry_id: str | None = None) -> dict:
+    if bool(activity_type) == bool(custom_exercise_id):
+        raise ValidationError("Provide exactly one of activity_type or custom_exercise_id.")
 
-    unit = unit or row.amount_unit
-    if unit != row.amount_unit:
-        raise ValidationError(
-            f"{row.display_name} is measured in {row.amount_unit}, not {unit}."
-        )
-    if amount <= 0:
-        raise ValidationError("Amount must be greater than zero.")
-    if sets < 1:
-        raise ValidationError("Sets must be at least 1.")
-    if row.prescription_type in ("distance", "duration") and sets != 1:
-        # One continuous effort. Sets would be meaningless and would double-count
-        # into total_volume.
-        raise ValidationError(f"{row.display_name} is a single effort, not sets.")
+    if custom_exercise_id:
+        # 4.4 — same entry point, same validation shape as a taxonomy log;
+        # the only different source is where the ceiling/unit come from.
+        custom = session.get(CustomExercise, custom_exercise_id)
+        if custom is None or custom.user_id != user_id:
+            raise NotFound(f"Unknown custom exercise: {custom_exercise_id}")
+        unit = unit or custom.unit
+        if unit != custom.unit:
+            raise ValidationError(f"{custom.name} is measured in {custom.unit}, not {unit}.")
+        if amount <= 0:
+            raise ValidationError("Amount must be greater than zero.")
+        if sets < 1:
+            raise ValidationError("Sets must be at least 1.")
+        if custom.measurement_type in ("distance", "duration") and sets != 1:
+            raise ValidationError(f"{custom.name} is a single effort, not sets.")
+        total = amount * sets
+        implausible = Decimal(str(total)) > custom.plausible_max_total
+        prescription = (f"{sets} x {amount} {custom.unit}" if sets > 1
+                        else f"{amount} {custom.unit}")
+        row_activity_type = None
+    else:
+        row = session.get(ActivityTaxonomy, activity_type)
+        if row is None:
+            raise NotFound(f"Unknown activity: {activity_type}")
 
-    total = row.total_volume(sets, amount)
+        unit = unit or row.amount_unit
+        if unit != row.amount_unit:
+            raise ValidationError(
+                f"{row.display_name} is measured in {row.amount_unit}, not {unit}."
+            )
+        if amount <= 0:
+            raise ValidationError("Amount must be greater than zero.")
+        if sets < 1:
+            raise ValidationError("Sets must be at least 1.")
+        if row.prescription_type in ("distance", "duration") and sets != 1:
+            # One continuous effort. Sets would be meaningless and would double-count
+            # into total_volume.
+            raise ValidationError(f"{row.display_name} is a single effort, not sets.")
 
-    # 4.6 — kept and flagged, never rejected. A user's entry is theirs.
-    implausible = Decimal(str(total)) > row.plausible_max_total
+        total = row.total_volume(sets, amount)
+        # 4.6 — kept and flagged, never rejected. A user's entry is theirs.
+        implausible = Decimal(str(total)) > row.plausible_max_total
+        prescription = row.describe(sets, amount)
+        row_activity_type = activity_type
 
     if client_entry_id:
         existing = session.scalar(
@@ -437,7 +463,8 @@ def log_activity(session: Session, user_id: str, *, activity_type: str,
                     "total_volume": float(existing.total_volume)}
 
     log = ActivityLog(
-        user_id=user_id, activity_type=activity_type,
+        user_id=user_id, activity_type=row_activity_type,
+        custom_exercise_id=custom_exercise_id,
         sets_done=sets, amount_per_set=amount, unit=unit, total_volume=total,
         local_date=today_ist(), source=source, implausible=implausible,
         client_entry_id=client_entry_id,
@@ -445,26 +472,157 @@ def log_activity(session: Session, user_id: str, *, activity_type: str,
     session.add(log)
     session.flush()
     return {"id": log.id, "duplicate": False, "implausible": implausible,
-            "total_volume": total, "prescription": row.describe(sets, amount)}
+            "total_volume": total, "prescription": prescription}
+
+
+# --- Custom exercises (4.4) --------------------------------------------------
+# Personal, tracking-only. Never read by suggestions_today, build_program, or
+# list_catalogue — those stay taxonomy-only, on purpose (13.1).
+
+CUSTOM_MEASUREMENT_UNITS = {"reps": "count", "distance": "km", "duration": "min"}
+CUSTOM_MEASUREMENT_DEFAULT_MAX = {"reps": 500, "distance": 50, "duration": 300}
+CUSTOM_EXERCISE_CAP = 20
+
+
+def _normalise_exercise_name(name: str) -> str:
+    return " ".join(name.strip().lower().split())
+
+
+def _custom_exercise_out(row: CustomExercise) -> dict:
+    return {"id": row.id, "name": row.name, "measurement_type": row.measurement_type,
+            "unit": row.unit}
+
+
+def list_custom_exercises(session: Session, user_id: str) -> list[dict]:
+    rows = session.scalars(
+        select(CustomExercise).where(CustomExercise.user_id == user_id)
+        .order_by(CustomExercise.created_at)
+    ).all()
+    return [_custom_exercise_out(r) for r in rows]
+
+
+def create_custom_exercise(session: Session, user_id: str, *, name: str,
+                           measurement_type: str) -> dict:
+    name = (name or "").strip()
+    if not name:
+        raise ValidationError("Name is required.")
+    if len(name) > 64:
+        raise ValidationError("Name must be 64 characters or fewer.")
+    if measurement_type not in CUSTOM_MEASUREMENT_UNITS:
+        raise ValidationError(
+            f"measurement_type must be one of: {', '.join(sorted(CUSTOM_MEASUREMENT_UNITS))}")
+
+    normalized = _normalise_exercise_name(name)
+
+    # Dedup against the official taxonomy first (4.4) — "jogging" must resolve
+    # to the real `run` activity, never spawn a personal duplicate of it.
+    for t in session.scalars(select(ActivityTaxonomy)).all():
+        synonyms = {s.lower() for s in (t.synonyms or [])}
+        if normalized == t.display_name.lower() or normalized in synonyms:
+            raise ValidationError(
+                f'"{name}" matches the built-in activity "{t.display_name}" — log that instead.'
+            )
+
+    existing = session.scalar(
+        select(CustomExercise).where(
+            CustomExercise.user_id == user_id,
+            CustomExercise.normalized_name == normalized)
+    )
+    if existing is not None:
+        raise ValidationError(f'You already have a custom exercise called "{existing.name}".')
+
+    count = session.scalar(
+        select(func.count()).select_from(CustomExercise)
+        .where(CustomExercise.user_id == user_id)
+    )
+    if count >= CUSTOM_EXERCISE_CAP:
+        raise ValidationError(f"You can have at most {CUSTOM_EXERCISE_CAP} custom exercises.")
+
+    row = CustomExercise(
+        user_id=user_id, name=name, normalized_name=normalized,
+        measurement_type=measurement_type, unit=CUSTOM_MEASUREMENT_UNITS[measurement_type],
+        plausible_max_total=CUSTOM_MEASUREMENT_DEFAULT_MAX[measurement_type],
+    )
+    session.add(row)
+    session.flush()
+    return _custom_exercise_out(row)
+
+
+def rename_custom_exercise(session: Session, user_id: str, exercise_id: str,
+                           new_name: str) -> dict:
+    row = session.get(CustomExercise, exercise_id)
+    if row is None or row.user_id != user_id:
+        raise NotFound("Custom exercise not found.")
+    new_name = (new_name or "").strip()
+    if not new_name:
+        raise ValidationError("Name is required.")
+    if len(new_name) > 64:
+        raise ValidationError("Name must be 64 characters or fewer.")
+    normalized = _normalise_exercise_name(new_name)
+    clash = session.scalar(
+        select(CustomExercise).where(
+            CustomExercise.user_id == user_id,
+            CustomExercise.normalized_name == normalized,
+            CustomExercise.id != exercise_id)
+    )
+    if clash is not None:
+        raise ValidationError(f'You already have a custom exercise called "{clash.name}".')
+    row.name = new_name
+    row.normalized_name = normalized
+    session.flush()
+    return _custom_exercise_out(row)
+
+
+def delete_custom_exercise(session: Session, user_id: str, exercise_id: str) -> dict:
+    row = session.get(CustomExercise, exercise_id)
+    if row is None or row.user_id != user_id:
+        raise NotFound("Custom exercise not found.")
+    has_logs = session.scalar(
+        select(func.count()).select_from(ActivityLog)
+        .where(ActivityLog.custom_exercise_id == exercise_id)
+    )
+    if has_logs:
+        # Deleting must never silently erase logged history (4.6's "never
+        # discard what a user entered" applies here too) - rename instead.
+        raise ValidationError(
+            f'"{row.name}" has logged history and can\'t be deleted. '
+            "Rename it instead if you want to change how it's shown."
+        )
+    session.delete(row)
+    session.flush()
+    return {"deleted": True}
 
 
 def recent_logs(session: Session, user_id: str, limit: int = 10) -> list[dict]:
     rows = session.execute(
-        select(ActivityLog, ActivityTaxonomy)
-        .join(ActivityTaxonomy,
-              ActivityTaxonomy.activity_type == ActivityLog.activity_type)
+        select(ActivityLog, ActivityTaxonomy, CustomExercise)
+        .outerjoin(ActivityTaxonomy,
+                   ActivityTaxonomy.activity_type == ActivityLog.activity_type)
+        .outerjoin(CustomExercise,
+                   CustomExercise.id == ActivityLog.custom_exercise_id)
         .where(ActivityLog.user_id == user_id)
         .order_by(ActivityLog.logged_at.desc())
         .limit(limit)
     ).all()
-    return [{
-        "display_name": t.display_name,
-        "activity_type": l.activity_type,
-        "sets": l.sets_done, "amount": float(l.amount_per_set), "unit": l.unit,
-        "prescription": t.describe(l.sets_done, float(l.amount_per_set)),
-        "logged_at": l.logged_at.isoformat(),
-        "implausible": l.implausible, "source": l.source,
-    } for l, t in rows]
+    out = []
+    for l, t, c in rows:
+        if t is not None:
+            display_name = t.display_name
+            prescription = t.describe(l.sets_done, float(l.amount_per_set))
+        else:
+            display_name = c.name
+            prescription = (f"{l.sets_done} x {l.amount_per_set} {l.unit}"
+                            if l.sets_done > 1 else f"{l.amount_per_set} {l.unit}")
+        out.append({
+            "display_name": display_name,
+            "activity_type": l.activity_type,
+            "custom": t is None,
+            "sets": l.sets_done, "amount": float(l.amount_per_set), "unit": l.unit,
+            "prescription": prescription,
+            "logged_at": l.logged_at.isoformat(),
+            "implausible": l.implausible, "source": l.source,
+        })
+    return out
 
 
 def streak(session: Session, user_id: str) -> dict:

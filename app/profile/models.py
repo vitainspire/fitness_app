@@ -54,6 +54,36 @@ class UserCondition(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class CustomExercise(Base):
+    """4.4 — a user's own free-named exercise.
+
+    Personal (owned by exactly one user), tracking-only: never suggested,
+    never programmed (13.1). Exists purely so activity_logs has something
+    to point at when a user logs something outside the reviewed taxonomy.
+    """
+    __tablename__ = "custom_exercises"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Lowercased/trimmed, so "Swimming" and "swimming " collide as one entry.
+    normalized_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    measurement_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    # Set from the measurement type's default ceiling at creation time (4.6) —
+    # a custom exercise has no reviewed taxonomy row to carry one otherwise.
+    plausible_max_total: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "normalized_name", name="uq_custom_exercise_user_name"),
+        CheckConstraint("measurement_type IN ('reps','distance','duration')",
+                        name="custom_measurement_known"),
+    )
+
+
 class ActivityLog(Base):
     """4.1 — one entry point for manual and voice input alike."""
     __tablename__ = "activity_logs"
@@ -61,8 +91,16 @@ class ActivityLog(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    activity_type: Mapped[str] = mapped_column(
-        String(64), ForeignKey("activity_taxonomy.activity_type"), nullable=False)
+    # Exactly one of these two is set (see log_exactly_one_source below).
+    # Official taxonomy activity:
+    activity_type: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("activity_taxonomy.activity_type"), nullable=True)
+    # 4.4 — or the user's own custom exercise. No ON DELETE CASCADE here on
+    # purpose: deleting a custom exercise must never silently erase the
+    # history logged against it (see delete_custom_exercise in service.py,
+    # which refuses the delete instead while logs still reference it).
+    custom_exercise_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("custom_exercises.id"), nullable=True)
 
     # What was actually performed, in the shape it was prescribed.
     sets_done: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -90,6 +128,8 @@ class ActivityLog(Base):
         CheckConstraint("source IN ('manual','voice')", name="log_source_known"),
         CheckConstraint("amount_per_set > 0", name="log_amount_positive"),
         CheckConstraint("sets_done >= 1", name="log_sets_positive"),
+        CheckConstraint("num_nonnulls(activity_type, custom_exercise_id) = 1",
+                        name="log_exactly_one_source"),
     )
 
 

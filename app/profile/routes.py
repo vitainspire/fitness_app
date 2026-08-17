@@ -116,7 +116,8 @@ def log():
         for e in entries:
             out.append(service.log_activity(
                 s, g.user_id,
-                activity_type=(e.get("activity_type") or "").strip(),
+                activity_type=(e.get("activity_type") or "").strip() or None,
+                custom_exercise_id=(e.get("custom_exercise_id") or "").strip() or None,
                 amount=float(e.get("amount") or e.get("quantity") or 0),
                 sets=int(e.get("sets") or 1),
                 unit=(e.get("unit") or None),
@@ -124,6 +125,43 @@ def log():
                 client_entry_id=e.get("client_entry_id"),
             ))
         return jsonify({"logged": out, "streak": service.streak(s, g.user_id)}), 201
+
+
+@bp.get("/custom-exercises")
+@require_auth
+def custom_exercises():
+    """4.4 — a user's own tracking-only exercises. Never suggested, never programmed."""
+    with session_scope() as s:
+        return jsonify({"custom_exercises": service.list_custom_exercises(s, g.user_id)})
+
+
+@bp.post("/custom-exercises")
+@require_auth
+def create_custom_exercise():
+    d = _body()
+    with session_scope() as s:
+        result = service.create_custom_exercise(
+            s, g.user_id,
+            name=(d.get("name") or "").strip(),
+            measurement_type=(d.get("measurement_type") or "").strip(),
+        )
+        return jsonify(result), 201
+
+
+@bp.put("/custom-exercises/<exercise_id>")
+@require_auth
+def rename_custom_exercise(exercise_id: str):
+    d = _body()
+    with session_scope() as s:
+        return jsonify(service.rename_custom_exercise(
+            s, g.user_id, exercise_id, (d.get("name") or "").strip()))
+
+
+@bp.delete("/custom-exercises/<exercise_id>")
+@require_auth
+def delete_custom_exercise(exercise_id: str):
+    with session_scope() as s:
+        return jsonify(service.delete_custom_exercise(s, g.user_id, exercise_id))
 
 
 @bp.get("/dashboard/trend")
