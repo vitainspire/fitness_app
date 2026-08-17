@@ -273,22 +273,38 @@ tailwind.config = { theme: { extend: {
   </div>
 </div>
 
-<!-- ════════ EDIT CONDITIONS MODAL (first-layer overlay) ════════ -->
+<!-- ════════ EDIT PROFILE MODAL (first-layer overlay) — age/goal/experience/conditions, one form ════════ -->
 <div id="cond-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-container-margin"
-     onclick="if (event.target === this) closeConditionEditor()">
+     onclick="if (event.target === this) closeProfileEditor()">
   <div class="bg-surface-container-lowest rounded-lg ambient-shadow w-full max-w-md max-h-[85vh] overflow-y-auto flex flex-col">
     <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant/30 sticky top-0 bg-surface-container-lowest z-10">
-      <h3 class="font-headline-sm text-headline-sm text-on-surface">Health Conditions</h3>
-      <button onclick="closeConditionEditor()" aria-label="Close"
+      <h3 class="font-headline-sm text-headline-sm text-on-surface">Edit Profile</h3>
+      <button onclick="closeProfileEditor()" aria-label="Close"
         class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface-variant shrink-0">
         <span class="material-symbols-outlined">close</span>
       </button>
     </div>
     <div class="p-md flex flex-col gap-md">
-      <p class="font-body-md text-body-md text-on-surface-variant">Select everything that applies. Your program updates immediately to remove anything unsafe for a new condition.</p>
-      <div id="cm-list" class="flex flex-wrap gap-sm"></div>
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Age</label>
+        <input id="pm-age" type="number" min="18"
+          class="w-full bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+      </div>
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Primary Goal</label>
+        <div id="pm-goals" class="flex flex-wrap gap-xs"></div>
+      </div>
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Experience</label>
+        <div id="pm-bands" class="flex flex-wrap gap-xs"></div>
+      </div>
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Health Conditions</label>
+        <p class="font-body-md text-body-md text-on-surface-variant">Select everything that applies. Your program updates immediately to remove anything unsafe for a new condition.</p>
+        <div id="cm-list" class="flex flex-wrap gap-sm"></div>
+      </div>
       <p id="cm-err" class="hidden font-body-md text-on-error-container bg-error-container rounded px-sm py-xs"></p>
-      <button onclick="saveConditionEditor()" class="w-full bg-primary text-on-primary py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
+      <button onclick="saveProfileEditor()" class="w-full bg-primary text-on-primary py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
         Save
       </button>
     </div>
@@ -631,38 +647,66 @@ async function removeExercise(activityType) {
 let editPicked = new Set();
 let editProfile = null;
 
-async function openConditionEditor() {
+let editGoal = "health", editBand = "beginner", editConditions = [];
+
+async function openProfileEditor() {
   const [p, c] = await Promise.all([api("GET", "/v1/profile"), api("GET", "/v1/conditions")]);
   editProfile = p;
+  editGoal = p.goal;
+  editBand = p.experience_band;
+  editConditions = c.conditions;
   editPicked = new Set(p.conditions.map(x => x.code));
   if (!editPicked.size) editPicked.add("none");
-  renderConditionEditor(c.conditions);
+  $("pm-age").value = p.age;
+  renderProfileEditor();
   $("cm-err").className = "hidden";
   const m = $("cond-modal");
   m.classList.remove("hidden");
   m.classList.add("flex");
 }
 
-function renderConditionEditor(conditions) {
+function renderProfileEditor() {
+  const g = $("pm-goals"); g.innerHTML = "";
+  GOALS.forEach(([v,l]) => g.appendChild(chip(l, editGoal===v, () => {editGoal=v; renderProfileEditor();})));
+  const bb = $("pm-bands"); bb.innerHTML = "";
+  BANDS.forEach(([v,l]) => bb.appendChild(chip(l, editBand===v, () => {editBand=v; renderProfileEditor();})));
   const list = $("cm-list");
   list.innerHTML = "";
-  conditions.forEach(cd => {
+  editConditions.forEach(cd => {
     const refer = cd.bucket === "refer";
     list.appendChild(chip(cd.name + (refer ? " ⚠" : ""), editPicked.has(cd.code), () => {
       if (cd.code === "none") { editPicked.clear(); editPicked.add("none"); }
       else { editPicked.delete("none"); editPicked.has(cd.code) ? editPicked.delete(cd.code) : editPicked.add(cd.code); }
-      renderConditionEditor(conditions);
+      renderProfileEditor();
     }, refer));
   });
 }
 
-async function saveConditionEditor() {
+async function saveProfileEditor() {
   try {
-    const d = await api("POST", "/v1/profile/onboarding", {
-      age: editProfile.age, goal: editProfile.goal, experience_band: editProfile.experience_band,
-      unit_preference: editProfile.unit_preference, condition_codes: [...editPicked],
-    });
-    closeConditionEditor();
+    const newAge = parseInt($("pm-age").value, 10);
+    const originalCodes = new Set(editProfile.conditions.map(x => x.code));
+    const conditionsChanged = editPicked.size !== originalCodes.size
+      || [...editPicked].some(c => !originalCodes.has(c));
+
+    let d;
+    if (conditionsChanged) {
+      // Condition changes need the full safety-grid re-check (14.4), so this
+      // one case still goes through onboarding rather than the quick-edit path.
+      d = await api("POST", "/v1/profile/onboarding", {
+        age: newAge, goal: editGoal, experience_band: editBand,
+        unit_preference: editProfile.unit_preference, condition_codes: [...editPicked],
+      });
+    } else {
+      // No condition change — use the lightweight edit (3.4), only send what moved.
+      const changed = {};
+      if (newAge !== editProfile.age) changed.age = newAge;
+      if (editGoal !== editProfile.goal) changed.goal = editGoal;
+      if (editBand !== editProfile.experience_band) changed.experience_band = editBand;
+      if (Object.keys(changed).length) await api("PUT", "/v1/profile", changed);
+      d = {};
+    }
+    closeProfileEditor();
     if (d.referred) {
       $("refer-msg").textContent = d.message;
       go("refer");
@@ -670,14 +714,14 @@ async function saveConditionEditor() {
       return;
     }
     await loadProfile();
-    toast("Conditions updated");
+    toast("Profile updated");
   } catch (e) {
     $("cm-err").textContent = e.message;
     $("cm-err").className = "font-body-md text-on-error-container bg-error-container rounded px-sm py-xs";
   }
 }
 
-function closeConditionEditor() {
+function closeProfileEditor() {
   const m = $("cond-modal");
   m.classList.add("hidden");
   m.classList.remove("flex");
@@ -787,18 +831,16 @@ async function loadProfile() {
   $("p-body").innerHTML = `
     <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex items-center gap-md">
       <div class="w-24 h-24 rounded-full bg-primary-container flex items-center justify-center font-display-lg-mobile text-on-primary-container shrink-0">${(EMAIL[0]||"?").toUpperCase()}</div>
-      <div class="min-w-0">
+      <div class="min-w-0 flex-1">
         <h2 class="font-headline-sm text-headline-sm text-on-surface truncate">${EMAIL.split("@")[0]}</h2>
         <p class="font-body-md text-on-surface-variant mt-1">${p.age} years · ${p.goal} · ${p.experience_band}</p>
       </div>
+      <button onclick="openProfileEditor()" class="font-label-bold text-label-bold text-primary shrink-0">Edit</button>
     </section>
     <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
-      <div class="flex items-center justify-between mb-md">
-        <div class="flex items-center gap-sm">
-          <span class="material-symbols-outlined text-primary">health_and_safety</span>
-          <h2 class="font-headline-sm text-headline-sm text-on-surface">Health Conditions</h2>
-        </div>
-        <button onclick="openConditionEditor()" class="font-label-bold text-label-bold text-primary">Edit</button>
+      <div class="flex items-center gap-sm mb-md">
+        <span class="material-symbols-outlined text-primary">health_and_safety</span>
+        <h2 class="font-headline-sm text-headline-sm text-on-surface">Health Conditions</h2>
       </div>
       ${p.conditions.map(c => `<p class="font-body-md ${c.bucket==='refer'?'text-on-error-container':'text-on-surface-variant'}">${c.name}${c.bucket==='refer'?' ⚠':''}</p>`).join("") || '<p class="font-body-md text-on-surface-variant">None</p>'}
     </section>
