@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fitness App — screens</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  body{background:#f4f5f7;font-family:"Hanken Grotesk",system-ui,sans-serif;color:#1a1c1e;margin:0}
+  .card{background:#fff;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,.05);
+        padding:20px;text-decoration:none;color:inherit;display:block;
+        transition:transform .2s ease, box-shadow .2s ease}
+  .card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.08)}
+  .card.missing{opacity:.5;pointer-events:none}
+  .tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;
+       font-weight:700;font-family:"Plus Jakarta Sans",sans-serif}
+  .live{background:#d4ff33;color:#5e7400}
+  .static{background:#e2e2e5;color:#444934}
+  .gap{background:#ffdad6;color:#93000a}
+</style>
+</head>
+<body>
+<div style="max-width:1080px;margin:0 auto;padding:32px 20px 64px">
+
+  <h1 style="font-size:32px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px">Screens</h1>
+  <p style="color:#5d5f5f;margin:0 0 28px;max-width:62ch">
+    Your five mockups, plus the auth screen they don't include. Only the auth screen
+    talks to the backend — the rest are static designs.
+  </p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
+
+    <a class="card" href="/ui/auth" style="border:2px solid #c8f323">
+      <span class="tag live">LIVE — hits the API</span>
+      <h2 style="font-size:19px;font-weight:700;margin:12px 0 4px">Sign up / Log in</h2>
+      <p style="color:#5d5f5f;font-size:14px;margin:0">
+        Real signup against PostgreSQL. Built in your design language because the
+        mockups have no auth screen.
+      </p>
+    </a>
+
+    {% for key, (filename, title, exists) in pages.items() %}
+    <a class="card {{ '' if exists else 'missing' }}" href="/ui/{{ key }}">
+      <span class="tag {{ 'static' if exists else 'gap' }}">
+        {{ 'STATIC MOCKUP' if exists else 'FILE NOT SAVED' }}
+      </span>
+      <h2 style="font-size:19px;font-weight:700;margin:12px 0 4px">{{ title }}</h2>
+      <p style="color:#5d5f5f;font-size:14px;margin:0;font-family:ui-monospace,monospace">
+        {{ filename }}
+      </p>
+    </a>
+    {% endfor %}
+
+    <a class="card" href="/dev" style="background:#1a1c1e;color:#e7e9ed">
+      <span class="tag" style="background:#2f3133;color:#97a0ae">DEBUG</span>
+      <h2 style="font-size:19px;font-weight:700;margin:12px 0 4px">API console</h2>
+      <p style="color:#97a0ae;font-size:14px;margin:0">
+        Raw request/response log. Includes the theft-detection scenario.
+      </p>
+    </a>
+  </div>
+
+  <div style="margin-top:36px;background:#fff;border-radius:20px;padding:20px 24px">
+    <h3 style="font-size:15px;font-weight:700;margin:0 0 10px">Where the mockups and the spec disagree</h3>
+    <ul style="color:#444934;font-size:14px;line-height:1.7;margin:0;padding-left:20px">
+      <li><b>No auth screen</b> — page 1 starts at age/sport/goals, so there is no way into the app</li>
+      <li><b>Focus Areas</b> (Lower Back, Knees…) are body regions; the spec stores conditions from a closed list with a refer-to-doctor path</li>
+      <li><b>Intensity</b> and <b>Daily Burn calories</b> exist in page 2 but nowhere in the requirements</li>
+      <li><b>Nutrition Preferences</b> in page 5 was explicitly excluded as out of scope</li>
+      <li>Page 3's AI names exercises ("cat-cow stretches") — the spec forbids the model naming any exercise</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,18 @@
+condition_code,display_name,bucket,display_order,notes
+none,None of these,supported,10,Standard program. No exclusions applied.
+chronic_back_pain,Chronic back pain,supported,20,
+herniated_disk,Herniated disc,supported,30,
+degenerative_disc,Degenerative disc disease,supported,40,
+spinal_stenosis,Spinal stenosis,supported,50,
+spondylosis,Spondylosis,supported,60,
+arthritis_hip,Hip arthritis,supported,70,
+bursitis,Bursitis,supported,80,
+carpal_tunnel,Carpal tunnel syndrome,supported,90,
+sprain_strain,Sprain or strain,supported,100,
+gout,Gout,supported,110,
+heart_condition,Heart condition,refer,900,Any cardiac diagnosis. Exercise guidance requires clinical supervision.
+pregnancy,Pregnant or recently postpartum,refer,910,Different guidance entirely; out of scope for this product.
+recent_surgery,Recent surgery,refer,920,
+acute_injury,Acute or unhealed injury,refer,930,
+neurological,Neurological condition,refer,940,Multiple sclerosis, neuropathy, and similar.
+other_unlisted,Something else / not listed,refer,999,FAIL-CLOSED DEFAULT. Do not remove this row.

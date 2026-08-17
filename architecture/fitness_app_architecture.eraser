@@ -1,0 +1,74 @@
+// -----------------------------------------------------------------
+// Fitness App - System Architecture (with Sign-Up Flow)
+// Diagram type: cloud-architecture-diagram
+// Recommended render settings when pasting into eraser.io:
+//   theme: dark, colorMode: bold  (group boxes render with the
+//   accent color below as their border; canvas background is dark)
+// -----------------------------------------------------------------
+
+CLIENT LAYER [icon: user, color: orange] {
+  Sign-Up Screen [label: "Sign-Up Screen", icon: user-plus]
+  Mobile App [label: "Flutter / React Native Mobile App", icon: mobile]
+  Dashboard [label: "Post-Login Growth & Streak Dashboard", icon: grid]
+}
+
+EDGE & ROUTING LAYER [icon: shield, color: orange] {
+  Load Balancer [label: "Nginx / Cloud Load Balancer", icon: hard-drive]
+  API Gateway [label: "API Gateway (Auth & Rate Limit)", icon: shield]
+}
+
+MICROSERVICES LAYER [icon: server, color: orange] {
+  Task Habit Service [label: "Beginner Task & Habit Service", icon: check-circle]
+  Async Worker [label: "Async Worker (Celery/Redis)", icon: refresh-cw]
+  YouTube Video Agent [label: "YouTube Video Agent", icon: youtube]
+  Rehab Pain Service [label: "Grounded Rehab & Pain Service", icon: activity]
+}
+
+DATA & PERSISTENCE LAYER [icon: database, color: orange] {
+  PostgreSQL [label: "PostgreSQL Cluster (Users & Logs)", icon: database]
+  Redis [label: "Redis (Sessions, Video Cache & LLM Quota Counters)", icon: database]
+}
+
+AI & LOGIC INFRASTRUCTURE [icon: cpu, color: orange] {
+  YouTube Data API [label: "YouTube Data API v3", icon: video]
+  LLM [label: "LLM (Guardrails & Synthesis)", icon: cloud]
+  Vector DB [label: "Vector DB (Verified Medical RAG)", icon: database]
+}
+
+// -----------------------------------------------------------------
+// Existing flows
+// -----------------------------------------------------------------
+
+Mobile App > Load Balancer: HTTPS/WebSockets (1,000 CCU)
+Load Balancer > API Gateway: Distributed Traffic
+
+API Gateway > Task Habit Service: Log Walking/Pushups & Check-ins
+API Gateway > Task Habit Service: Query Historical Progress
+API Gateway > YouTube Video Agent: Fetch Exercise Demonstration
+API Gateway > Rehab Pain Service: Request Joint/Back Pain Protocol
+
+Task Habit Service > PostgreSQL: Commit Task Streaks & Workout Logs
+Task Habit Service > PostgreSQL: Read Task Streaks & Workout History for Trends
+Task Habit Service > Redis: Maintain User Session & Active State
+
+Async Worker > Redis: Pull Scheduled Motivation Alerts
+
+YouTube Video Agent > Redis: Store Cached Video Embeds & IDs
+YouTube Video Agent > YouTube Data API: Fetch Filtered Video Metadata
+
+Rehab Pain Service > Redis: Check & Increment Daily LLM Quota (Max 5 Queries/User/Day)
+Rehab Pain Service > LLM: Synthesize Safe Guidelines (Only if Under Daily Quota)
+Rehab Pain Service > Vector DB: Semantic Query (Medical Specs)
+
+Task Habit Service > Dashboard: Return Growth Charts & Streak Data
+Dashboard > API Gateway: Fetch Growth & Streak Analytics
+
+// -----------------------------------------------------------------
+// NEW: Sign-Up Flow
+// -----------------------------------------------------------------
+
+Sign-Up Screen > Load Balancer: Submit Signup (Email/Password or OAuth)
+API Gateway > PostgreSQL: Create User Record
+API Gateway > Redis: Create Session Token
+API Gateway > Sign-Up Screen: Return Auth Token / Redirect to Dashboard
+Sign-Up Screen > Dashboard: Redirect to Dashboard on Success

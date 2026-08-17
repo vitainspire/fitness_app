@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fitness App — API Console (dev)</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --ink:#1a1c1e; --muted:#5d5f5f;
+    --primary:#526600; --primary-c:#d4ff33; --on-primary-c:#5e7400;
+    --line:#e2e2e5; --err:#ba1a1a; --err-bg:#ffdad6; --ok:#1f6349; --ok-bg:#e1efe8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.5 "Hanken Grotesk",-apple-system,Segoe UI,sans-serif}
+  header{background:var(--card);border-bottom:1px solid var(--line);
+         padding:18px 24px;position:sticky;top:0;z-index:10}
+  header h1{margin:0;font-size:20px;font-weight:700;color:var(--primary)}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px;display:grid;
+        grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:start}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--card);border-radius:18px;padding:20px;
+        box-shadow:0 4px 20px rgba(0,0,0,.05);margin-bottom:16px}
+  .card h2{margin:0 0 4px;font-size:16px;font-weight:700}
+  .card .hint{margin:0 0 14px;font-size:12.5px;color:var(--muted)}
+  label{display:block;font-size:12px;font-weight:700;letter-spacing:.02em;
+        color:var(--muted);margin:10px 0 4px;text-transform:uppercase}
+  input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+        font:inherit;background:#f3f3f6}
+  input:focus{outline:2px solid var(--primary-c);border-color:transparent}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  button{border:0;border-radius:999px;padding:10px 18px;font:inherit;font-weight:700;
+         cursor:pointer;background:var(--primary-c);color:var(--on-primary-c)}
+  button.ghost{background:#f3f3f6;color:var(--ink);border:1px solid var(--line)}
+  button.danger{background:var(--err-bg);color:#93000a}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .state{font-size:12.5px;margin-top:14px;padding:12px;border-radius:12px;
+         background:#f3f3f6;word-break:break-all}
+  .state b{display:block;color:var(--muted);font-weight:700;font-size:11px;
+           text-transform:uppercase;margin-bottom:2px}
+  .state div+div{margin-top:8px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;
+        font-weight:700}
+  .pill.on{background:var(--ok-bg);color:var(--ok)}
+  .pill.off{background:#eee;color:var(--muted)}
+  #log{font:12.5px/1.55 ui-monospace,Consolas,monospace;background:#1a1c1e;color:#e7e9ed;
+       border-radius:18px;padding:16px;min-height:420px;max-height:72vh;overflow:auto}
+  .entry{border-bottom:1px solid #2f3133;padding:10px 0}
+  .entry:last-child{border-bottom:0}
+  .m{font-weight:700}
+  .s2{color:#5fbe95}.s4{color:#e8757b}.s5{color:#d9a557}
+  pre{margin:6px 0 0;white-space:pre-wrap;color:#c2c7d0}
+  .note{font-size:12px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Fitness App — API Console</h1>
+  <p>Development harness. Drives the real backend — the product UI is a mobile app (Module 11).</p>
+</header>
+
+<div class="wrap">
+  <div>
+    <div class="card">
+      <h2>Account</h2>
+      <p class="hint">Every auth call sends <code>X-Device-Id</code>. The refresh grace
+         period is bound to it — that is what separates a retry from theft.</p>
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="off">
+      <label for="password">Password</label>
+      <input id="password" type="text" value="correct horse battery" autocomplete="off">
+      <p class="note">Minimum 10 characters (1.1).</p>
+      <label for="device">Device ID</label>
+      <input id="device" value="pixel-8" autocomplete="off">
+      <div class="row">
+        <button onclick="signup()">Sign up</button>
+        <button class="ghost" onclick="login()">Log in</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Session</h2>
+      <p class="hint">Refresh rotates the pair. Replaying the old token from
+         <em>another</em> device is treated as theft and kills every session.</p>
+      <div class="row">
+        <button class="ghost" onclick="refresh()">Refresh</button>
+        <button class="ghost" onclick="callAuthed()">Authenticated call</button>
+        <button class="ghost" onclick="logout()">Log out</button>
+      </div>
+      <div class="row">
+        <button class="danger" onclick="stealToken()">Replay from other device</button>
+        <button class="danger" onclick="deleteAccount()">Delete account</button>
+      </div>
+      <div class="state">
+        <div><b>Access token</b><span id="s-at">none</span></div>
+        <div><b>Refresh token</b><span id="s-rt">none</span></div>
+        <div><b>Expires</b><span id="s-exp">—</span></div>
+        <div><b>Signed in</b><span id="s-in" class="pill off">no</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="log"><div class="entry" style="color:#97a0ae">
+    Requests appear here. Try <b>Sign up</b>.
+  </div></div>
+</div>
+
+<script>
+let AT = null, RT = null;
+
+const $ = id => document.getElementById(id);
+const short = t => t ? t.slice(0, 28) + "…" : "none";
+
+function paint() {
+  $("s-at").textContent = short(AT);
+  $("s-rt").textContent = short(RT);
+  const el = $("s-in");
+  el.textContent = AT ? "yes" : "no";
+  el.className = "pill " + (AT ? "on" : "off");
+}
+
+function log(method, path, status, body) {
+  const cls = status >= 500 ? "s5" : status >= 400 ? "s4" : "s2";
+  const e = document.createElement("div");
+  e.className = "entry";
+  e.innerHTML = `<span class="m">${method}</span> ${path}
+    <span class="${cls}">${status}</span>
+    <pre>${JSON.stringify(body, null, 2)}</pre>`;
+  const box = $("log");
+  box.insertBefore(e, box.firstChild);
+}
+
+async function call(method, path, {body, token, device} = {}) {
+  const headers = {"X-Device-Id": device ?? $("device").value};
+  if (body) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(path, {
+    method, headers, body: body ? JSON.stringify(body) : undefined
+  });
+  let data;
+  try { data = await res.json(); } catch { data = {"(no body)": true}; }
+  log(method, path, res.status, data);
+  return {status: res.status, data};
+}
+
+function capture(d) {
+  if (d.access_token) AT = d.access_token;
+  if (d.refresh_token) RT = d.refresh_token;
+  if (d.access_expires_at) $("s-exp").textContent = d.access_expires_at.slice(11, 19) + " UTC";
+  paint();
+}
+
+function creds() {
+  return {email: $("email").value, password: $("password").value};
+}
+
+async function signup() {
+  if (!$("email").value) $("email").value = `dev.${Date.now()}@example.com`;
+  const {data} = await call("POST", "/v1/auth/signup", {body: creds()});
+  capture(data);
+}
+async function login()   { capture((await call("POST", "/v1/auth/login",   {body: creds()})).data); }
+async function refresh() { capture((await call("POST", "/v1/auth/refresh", {body: {refresh_token: RT}})).data); }
+
+async function logout() {
+  await call("POST", "/v1/auth/logout", {body: {refresh_token: RT}, token: AT});
+  AT = null; RT = null; paint();
+}
+async function callAuthed() { await call("POST", "/v1/auth/logout", {body: {}, token: AT}); }
+
+async function stealToken() {
+  await call("POST", "/v1/auth/refresh",
+             {body: {refresh_token: RT}, device: "attacker-laptop"});
+}
+async function deleteAccount() {
+  await call("DELETE", "/v1/account", {token: AT});
+  AT = null; RT = null; paint();
+}
+
+paint();
+</script>
+</body>
+</html>

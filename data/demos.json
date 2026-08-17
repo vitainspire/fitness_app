@@ -1,0 +1,174 @@
+{
+  "walk": {
+    "images": [],
+    "instructions": [],
+    "source": null
+  },
+  "neck_isometric": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Isometric_Neck_Exercise_-_Front_And_Back/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Isometric_Neck_Exercise_-_Front_And_Back/1.jpg"
+    ],
+    "instructions": [
+      "With your head and neck in a neutral position (normal position with head erect facing forward), place both of your hands on the front side of your head.",
+      "Now gently push forward as you contract the neck muscles but resisting any movement of your head. Start with slow tension and increase slowly. Keep breathing normally as you execute this contraction.",
+      "Hold for the recommended number of seconds.",
+      "Now release the tension slowly.",
+      "Rest for the recommended amount of time and repeat with your hands placed on the back side of your head."
+    ],
+    "source": "Isometric_Neck_Exercise_-_Front_And_Back",
+    "primary_muscles": [
+      "neck"
+    ]
+  },
+  "shoulder_circles": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Shoulder_Circles/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Shoulder_Circles/1.jpg"
+    ],
+    "instructions": [
+      "With shoulders relaxed and arms resting loosely at your sides (or in your lap if you're seated), gently roll your shoulders forward, up, back, and down.",
+      "Reverse direction. You can do this exercise alternating shoulders or both at the same time."
+    ],
+    "source": "Shoulder_Circles",
+    "primary_muscles": [
+      "shoulders"
+    ]
+  },
+  "lower_back_side_stretch": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chair_Lower_Back_Stretch/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Chair_Lower_Back_Stretch/1.jpg"
+    ],
+    "instructions": [
+      "Sit upright on a chair.",
+      "Bend to one side with your arm over your head. You can hold onto the chair with your free hand.",
+      "Hold for 10 seconds, and repeat for your other side."
+    ],
+    "source": "Chair_Lower_Back_Stretch",
+    "primary_muscles": [
+      "lats"
+    ]
+  },
+  "glute_bridge": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butt_Lift_Bridge/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Butt_Lift_Bridge/1.jpg"
+    ],
+    "instructions": [
+      "Lie flat on the floor on your back with the hands by your side and your knees bent. Your feet should be placed around shoulder width. This will be your starting position.",
+      "Pushing mainly with your heels, lift your hips off the floor while keeping your back straight. Breathe out as you perform this part of the motion and hold at the top for a second.",
+      "Slowly go back to the starting position as you breathe in."
+    ],
+    "source": "Butt_Lift_Bridge",
+    "primary_muscles": [
+      "glutes"
+    ],
+    "gif": "/static/demos/glute_bridge.gif",
+    "gif_source": "low glute bridge on floor"
+  },
+  "dead_bug": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dead_Bug/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dead_Bug/1.jpg"
+    ],
+    "instructions": [
+      "Begin lying on your back with your hands extended above you toward the ceiling.",
+      "Bring your feet, knees, and hips up to 90 degrees.",
+      "Exhale hard to bring your ribcage down and flatten your back onto the floor, rotating your pelvis up and squeezing your glutes. Hold this position throughout the movement. This will be your starting position.",
+      "Initiate the exercise by extending one leg, straightening the knee and hip to bring the leg just above the ground.",
+      "Maintain the position of your lumbar and pelvis as you perform the movement, as your back is going to want to arch.",
+      "Stay tight and return the working leg to the starting position.",
+      "Repeat on the opposite side, alternating until the set is complete."
+    ],
+    "source": "Dead_Bug",
+    "primary_muscles": [
+      "abdominals"
+    ],
+    "gif": "/static/demos/dead_bug.gif",
+    "gif_source": "dead bug"
+  },
+  "hamstring_stretch": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Floor_Hamstring_Stretch/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Floor_Hamstring_Stretch/1.jpg"
+    ],
+    "instructions": [
+      "Sit on a mat with your right leg extended in front of you and your left leg bent with your foot against your right inner thigh.",
+      "Lean forward from your hips and reach for your ankle until you feel a stretch in your hamstring. Hold for 15 seconds, then repeat for your other side."
+    ],
+    "source": "Seated_Floor_Hamstring_Stretch",
+    "primary_muscles": [
+      "hamstrings"
+    ],
+    "gif": "/static/demos/hamstring_stretch.gif",
+    "gif_source": "hamstring stretch"
+  },
+  "quad_stretch": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/On_Your_Side_Quad_Stretch/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/On_Your_Side_Quad_Stretch/1.jpg"
+    ],
+    "instructions": [
+      "Start off by lying on your right side, with your right knee bent at a 90-degree angle resting on the floor in front of you (this stabilizes the torso).",
+      "Bend your left knee behind you and hold your left foot with your left hand. To stretch your hip flexor, press your left hip forward as you push your left foot back into your hand. Switch sides."
+    ],
+    "source": "On_Your_Side_Quad_Stretch",
+    "primary_muscles": [
+      "quadriceps"
+    ],
+    "gif": "/static/demos/quad_stretch.gif",
+    "gif_source": "lying (side) quads stretch"
+  },
+  "calf_stretch": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Stretch_Hands_Against_Wall/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Calf_Stretch_Hands_Against_Wall/1.jpg"
+    ],
+    "instructions": [
+      "Stand facing a wall from several feet away. Stagger your stance, placing one foot forward.",
+      "Lean forward and rest your hands on the wall, keeping your heel, hip and head in a straight line.",
+      "Attempt to keep your heel on the ground. Hold for 10-20 seconds and then switch sides."
+    ],
+    "source": "Calf_Stretch_Hands_Against_Wall",
+    "primary_muscles": [
+      "calves"
+    ],
+    "gif": "/static/demos/calf_stretch.gif",
+    "gif_source": "calf stretch with hands against wall"
+  },
+  "ankle_circles": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Ankle_Circles/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Ankle_Circles/1.jpg"
+    ],
+    "instructions": [
+      "Sit or stand and hold a chair or wall for balance if you need it.",
+      "Lift the right leg in the air (just around 2 inches from the floor) and perform a circular motion with the big toe. Pretend that you are drawing a big circle with it. Tip: One circle equals 1 repetition. Breathe normally as you perform the movement.",
+      "When you are done with the right foot, then repeat with the left leg."
+    ],
+    "source": "Ankle_Circles",
+    "primary_muscles": [
+      "calves"
+    ],
+    "gif": "/static/demos/ankle_circles.gif",
+    "gif_source": "ankle circles"
+  },
+  "wrist_circles": {
+    "images": [
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wrist_Circles/0.jpg",
+      "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wrist_Circles/1.jpg"
+    ],
+    "instructions": [
+      "Sit comfortably with your arms relaxed by your sides or resting on your lap.",
+      "Keeping your entire body stationary except for the wrists, begin to rotate both wrists forward in a circular motion. Tip: Pretend that you are trying to draw circles by using your hands as the brush. Breathe normally as you perform this exercise.",
+      "Repeat for the recommended amount of repetitions."
+    ],
+    "source": "Wrist_Circles",
+    "primary_muscles": [
+      "forearms"
+    ],
+    "gif": "/static/demos/wrist_circles.gif",
+    "gif_source": "wrist circles"
+  }
+}

@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fitness App</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script>
+tailwind.config = { theme: { extend: {
+  colors:{
+    "surface-container-low":"#f3f3f6","on-primary-container":"#5e7400","surface-variant":"#e2e2e5",
+    "surface-container-highest":"#e2e2e5","surface-container-lowest":"#ffffff","primary":"#526600",
+    "surface-bright":"#f9f9fc","tertiary-fixed":"#e1e2e4","outline":"#757961",
+    "tertiary-container":"#edeef0","on-tertiary":"#ffffff","inverse-on-surface":"#f0f0f3",
+    "secondary":"#5d5f5f","inverse-surface":"#2f3133","error-container":"#ffdad6",
+    "primary-fixed":"#c8f323","on-primary":"#ffffff","primary-fixed-dim":"#aed500",
+    "surface-container-high":"#e8e8ea","surface":"#f9f9fc","surface-container":"#eeeef0",
+    "tertiary":"#5c5f60","on-tertiary-container":"#696c6e","outline-variant":"#c5c9ad",
+    "on-primary-fixed":"#171e00","primary-container":"#d4ff33","on-background":"#1a1c1e",
+    "on-surface":"#1a1c1e","surface-dim":"#dadadc","error":"#ba1a1a",
+    "on-surface-variant":"#444934","on-primary-fixed-variant":"#3d4d00",
+    "secondary-container":"#dfe0e0","background":"#f9f9fc","on-error-container":"#93000a",
+    "on-secondary":"#ffffff","on-error":"#ffffff","inverse-primary":"#aed500"
+  },
+  borderRadius:{DEFAULT:"1rem",lg:"2rem",xl:"3rem",full:"9999px"},
+  spacing:{xl:"32px",sm:"12px",md:"16px","card-gap":"12px",lg:"24px",base:"4px","container-margin":"20px",xs:"8px"},
+  fontFamily:{"headline-sm":["Hanken Grotesk"],"body-md":["Hanken Grotesk"],"headline-md":["Hanken Grotesk"],
+    "label-bold":["Plus Jakarta Sans"],"display-lg-mobile":["Hanken Grotesk"],"display-lg":["Hanken Grotesk"],
+    "label-sm":["Plus Jakarta Sans"],"body-lg":["Hanken Grotesk"]},
+  fontSize:{"headline-sm":["20px",{lineHeight:"28px",fontWeight:"600"}],
+    "body-md":["16px",{lineHeight:"24px",fontWeight:"400"}],
+    "headline-md":["24px",{lineHeight:"32px",letterSpacing:"-0.01em",fontWeight:"700"}],
+    "label-bold":["14px",{lineHeight:"20px",letterSpacing:"0.02em",fontWeight:"700"}],
+    "display-lg-mobile":["28px",{lineHeight:"36px",fontWeight:"800"}],
+    "display-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"800"}],
+    "label-sm":["12px",{lineHeight:"16px",fontWeight:"500"}],
+    "body-lg":["18px",{lineHeight:"26px",fontWeight:"500"}]}
+}}}
+</script>
+<style>
+  body{background-color:#f9f9fc;color:#1a1c1e;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+  .ambient-shadow{box-shadow:0 4px 20px rgba(0,0,0,.05)}
+  .screen{display:none}.screen.on{display:block}
+  .assistant-pulse{animation:pulse 2s infinite cubic-bezier(.4,0,.6,1)}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.7;transform:scale(1.05)}}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:120px;z-index:60;
+         padding:12px 20px;border-radius:999px;font-family:"Plus Jakarta Sans";font-size:14px;
+         font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.14);opacity:0;pointer-events:none;
+         transition:opacity .2s ease}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body class="min-h-screen pb-32">
+
+<!-- ════════ AUTH ════════ -->
+<section id="s-auth" class="screen on">
+  <div class="max-w-md mx-auto px-container-margin pt-xl">
+    <h1 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Let's Get Started</h1>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-xs mb-lg">Create an account to begin.</p>
+    <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col gap-md">
+      <div>
+        <label class="font-label-bold text-label-bold text-on-surface">Email</label>
+        <input id="a-email" type="email" placeholder="you@example.com"
+          class="w-full mt-xs bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+      </div>
+      <div>
+        <label class="font-label-bold text-label-bold text-on-surface">Password</label>
+        <input id="a-pass" type="password" value="a good long passphrase"
+          class="w-full mt-xs bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+      </div>
+      <div id="a-err" class="hidden rounded-lg px-md py-sm font-body-md bg-error-container text-on-error-container"></div>
+      <button onclick="doAuth('signup')" class="w-full bg-primary-fixed text-on-primary-fixed font-label-bold text-label-bold py-md rounded-full shadow-lg active:scale-95 transition-all">Create account</button>
+      <button onclick="doAuth('login')" class="w-full font-label-sm text-label-sm text-on-surface-variant py-xs">I already have an account</button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ ONBOARDING ════════ -->
+<section id="s-onboard" class="screen">
+  <div class="max-w-md mx-auto px-container-margin pt-xl">
+    <h1 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Let's Get Started</h1>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-xs mb-lg">Tell us a bit about yourself to personalise your experience.</p>
+    <div class="flex flex-col gap-lg">
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Age</label>
+        <input id="o-age" type="number" value="30" min="18"
+          class="w-full bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+      </div>
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Experience</label>
+        <div id="o-bands" class="flex flex-wrap gap-xs"></div>
+      </div>
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Primary Goal</label>
+        <div id="o-goals" class="flex flex-wrap gap-xs"></div>
+      </div>
+      <div class="flex flex-col gap-sm">
+        <label class="font-label-bold text-label-bold text-on-surface">Health Conditions</label>
+        <p class="font-label-sm text-label-sm text-on-surface-variant">Pick from the list. Some need a doctor's input first — those are marked.</p>
+        <div id="o-conds" class="flex flex-wrap gap-xs"></div>
+      </div>
+      <div id="o-err" class="hidden rounded-lg px-md py-sm font-body-md bg-error-container text-on-error-container"></div>
+      <button onclick="submitOnboarding()" class="w-full bg-primary-fixed text-on-primary-fixed font-label-bold text-label-bold py-md rounded-full shadow-lg active:scale-95 transition-all flex items-center justify-center gap-xs">
+        Continue <span class="material-symbols-outlined">arrow_forward</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ REFERRAL ════════ -->
+<section id="s-refer" class="screen">
+  <div class="max-w-md mx-auto px-container-margin pt-xl">
+    <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg text-center">
+      <span class="material-symbols-outlined text-[56px] text-primary">medical_services</span>
+      <h1 class="font-headline-md text-headline-md mt-md text-on-surface">Please speak to a doctor</h1>
+      <p id="refer-msg" class="font-body-md text-body-md text-on-surface-variant mt-sm"></p>
+      <p class="font-label-sm text-label-sm text-on-surface-variant mt-lg">You can still log activities — we just won't suggest exercises.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ ACTIVITY (dashboard + logging, as page2) ════════ -->
+<section id="s-home" class="screen">
+  <header class="text-primary sticky top-0 bg-background z-40">
+    <div class="flex justify-between items-center px-container-margin py-md w-full max-w-md mx-auto">
+      <div class="flex items-center gap-sm">
+        <div id="h-avatar" class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 font-label-bold text-on-primary-container"></div>
+        <h1 id="h-hello" class="font-headline-sm text-headline-sm font-bold text-on-surface"></h1>
+      </div>
+      <button onclick="go('profile')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface">
+        <span class="material-symbols-outlined">notifications</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="px-container-margin py-md space-y-xl max-w-md mx-auto">
+    <!-- title + quick actions -->
+    <section class="space-y-md">
+      <h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Log Activity</h2>
+      <div class="rounded-DEFAULT overflow-hidden h-32 w-full mb-md bg-primary-container flex items-center justify-center">
+        <span class="material-symbols-outlined text-[64px] text-on-primary-container">directions_walk</span>
+      </div>
+      <div id="h-quick" class="grid grid-cols-2 gap-sm"></div>
+    </section>
+
+    <!-- chart -->
+    <section class="space-y-md">
+      <div class="flex justify-between items-center">
+        <h3 class="font-headline-sm text-headline-sm text-on-surface">This Week</h3>
+        <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
+          <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
+          <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
+        <div class="flex h-40">
+          <div id="h-yaxis" class="flex flex-col justify-between text-xs text-secondary/60 pb-6 pr-4 font-medium"></div>
+          <div class="flex-1 relative flex flex-col">
+            <div class="absolute inset-0 flex flex-col justify-between pb-6 pointer-events-none z-0">
+              <div class="w-full h-px bg-surface-variant/50"></div>
+              <div class="w-full h-px bg-surface-variant/50"></div>
+              <div class="w-full h-px bg-surface-variant/50"></div>
+            </div>
+            <div id="h-bars" class="flex-1 flex items-end justify-between z-10 pb-6 gap-2"></div>
+            <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-secondary/60 font-medium pt-2"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- recommended today: 2-col card grid -->
+    <section class="space-y-md">
+      <div class="flex items-center justify-between">
+        <h3 class="font-headline-sm text-headline-sm text-on-surface">Recommended Today</h3>
+        <button id="h-add-btn" onclick="openCatalogue()" class="hidden font-label-bold text-label-bold text-primary">+ Add exercise</button>
+      </div>
+      <p id="h-tier-note" class="hidden font-label-sm text-label-sm text-on-surface-variant"></p>
+      <div id="h-cards" class="grid grid-cols-2 gap-sm items-stretch"></div>
+    </section>
+
+    <!-- recent logs -->
+    <section class="space-y-sm">
+      <h3 class="font-headline-sm text-headline-sm text-on-surface">Recent Logs</h3>
+      <div id="h-recent" class="space-y-card-gap"></div>
+    </section>
+  </main>
+
+  <!-- voice FAB -->
+  <div class="fixed bottom-24 right-container-margin z-50">
+    <button onclick="voiceStub()" class="w-16 h-16 rounded-full bg-primary-fixed shadow-lg flex items-center justify-center text-on-primary-fixed active:scale-95 transition-all assistant-pulse">
+      <span class="material-symbols-outlined text-[32px]">mic</span>
+    </button>
+  </div>
+</section>
+
+<!-- ════════ CHAT (design only) ════════ -->
+<section id="s-chat" class="screen">
+  <div class="max-w-md mx-auto px-container-margin pt-lg">
+    <h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Rehab &amp; Pain</h2>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-xs max-w-[280px]">Ask about your recovery or describe any discomfort.</p>
+    <div class="mt-xs inline-flex items-center gap-xs bg-surface-container-low px-sm py-xs rounded-full">
+      <span class="material-symbols-outlined text-primary text-[18px]" style="font-variation-settings:'FILL' 1">bolt</span>
+      <span class="font-label-bold text-label-bold text-on-surface">5/5 questions</span>
+      <span class="font-label-sm text-label-sm text-on-surface-variant ml-1">remaining today</span>
+    </div>
+    <div class="mt-lg flex flex-col gap-md">
+      <div class="self-end max-w-[85%]">
+        <div class="bg-primary-container text-on-primary-container rounded-2xl rounded-tr-sm px-md py-sm">
+          <p class="font-body-md text-body-md">My lower back feels tight. Should I stretch or rest?</p>
+        </div>
+      </div>
+      <div class="self-start max-w-[90%]">
+        <div class="flex items-end gap-xs mb-1">
+          <div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-on-primary text-[14px]" style="font-variation-settings:'FILL' 1">smart_toy</span>
+          </div>
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Coach AI</span>
+        </div>
+        <div class="bg-surface-container-lowest ambient-shadow rounded-2xl rounded-tl-sm p-md">
+          <p class="font-body-md text-body-md text-on-surface-variant italic">Not connected yet. When it is, any exercise it mentions will come from your reviewed list — it will never invent one.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ VIDEOS ════════ -->
+<section id="s-videos" class="screen">
+  <div class="max-w-md mx-auto px-container-margin pt-lg">
+    <h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Video Library</h2>
+    <p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-lg">Curated routines for your goals.</p>
+    <div id="v-list" class="flex flex-col gap-lg"></div>
+  </div>
+</section>
+
+<!-- ════════ PROFILE ════════ -->
+<section id="s-profile" class="screen">
+  <div class="max-w-md mx-auto px-container-margin pt-lg">
+    <h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface mb-lg">Settings</h2>
+    <div id="p-body" class="flex flex-col gap-card-gap"></div>
+  </div>
+</section>
+
+<!-- ════════ BOTTOM NAV (4 items, as page2) ════════ -->
+<nav id="nav" class="hidden">
+  <button data-t="home"    class="nav-btn flex flex-row items-center gap-xs rounded-full px-md py-xs active:scale-90 duration-200"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">insights</span></button>
+  <button data-t="chat"    class="nav-btn flex items-center justify-center p-xs rounded-full active:scale-90 duration-200"><span class="material-symbols-outlined">forum</span></button>
+  <button data-t="videos"  class="nav-btn flex items-center justify-center p-xs rounded-full active:scale-90 duration-200"><span class="material-symbols-outlined">play_circle</span></button>
+  <button data-t="profile" class="nav-btn flex items-center justify-center p-xs rounded-full active:scale-90 duration-200"><span class="material-symbols-outlined">account_circle</span></button>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<!-- ════════ EXERCISE DEMO MODAL (first-layer overlay) ════════ -->
+<div id="demo-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-container-margin"
+     onclick="if (event.target === this) closeDemo()">
+  <div class="bg-surface-container-lowest rounded-lg ambient-shadow w-full max-w-md max-h-[85vh] overflow-y-auto flex flex-col">
+    <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant/30 sticky top-0 bg-surface-container-lowest z-10">
+      <h3 id="dm-title" class="font-headline-sm text-headline-sm text-on-surface"></h3>
+      <button onclick="closeDemo()" aria-label="Close"
+        class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface-variant shrink-0">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="p-md flex flex-col gap-md">
+      <div class="relative w-full aspect-video rounded-[14px] overflow-hidden bg-surface-container-low">
+        <img id="dm-img" src="" alt="" class="w-full h-full object-contain">
+      </div>
+      <ol id="dm-steps" class="font-body-md text-body-md text-on-surface-variant list-decimal pl-5 space-y-1"></ol>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ EDIT CONDITIONS MODAL (first-layer overlay) ════════ -->
+<div id="cond-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-container-margin"
+     onclick="if (event.target === this) closeConditionEditor()">
+  <div class="bg-surface-container-lowest rounded-lg ambient-shadow w-full max-w-md max-h-[85vh] overflow-y-auto flex flex-col">
+    <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant/30 sticky top-0 bg-surface-container-lowest z-10">
+      <h3 class="font-headline-sm text-headline-sm text-on-surface">Health Conditions</h3>
+      <button onclick="closeConditionEditor()" aria-label="Close"
+        class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface-variant shrink-0">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="p-md flex flex-col gap-md">
+      <p class="font-body-md text-body-md text-on-surface-variant">Select everything that applies. Your program updates immediately to remove anything unsafe for a new condition.</p>
+      <div id="cm-list" class="flex flex-wrap gap-sm"></div>
+      <p id="cm-err" class="hidden font-body-md text-on-error-container bg-error-container rounded px-sm py-xs"></p>
+      <button onclick="saveConditionEditor()" class="w-full bg-primary text-on-primary py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ ADD EXERCISE / CATALOGUE MODAL (first-layer overlay) ════════ -->
+<div id="catalogue-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60 backdrop-blur-sm px-container-margin"
+     onclick="if (event.target === this) closeCatalogue()">
+  <div class="bg-surface-container-lowest rounded-lg ambient-shadow w-full max-w-md max-h-[85vh] overflow-y-auto flex flex-col">
+    <div class="flex items-center justify-between px-md py-sm border-b border-outline-variant/30 sticky top-0 bg-surface-container-lowest z-10">
+      <h3 class="font-headline-sm text-headline-sm text-on-surface">Add an exercise</h3>
+      <button onclick="closeCatalogue()" aria-label="Close"
+        class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface-variant shrink-0">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="catalogue-list" class="p-md flex flex-col gap-sm"></div>
+  </div>
+</div>
+
+<script>
+const NAV_ON = "fixed bottom-md left-1/2 -translate-x-1/2 w-[90%] max-w-md z-50 flex justify-between items-center px-md py-sm bg-surface-container-lowest/80 backdrop-blur-md shadow-lg rounded-full";
+const DEV = "web-" + (localStorage.getItem("did") || (()=>{const d=Math.random().toString(36).slice(2,10);localStorage.setItem("did",d);return d})());
+let AT = localStorage.getItem("at"), RT = localStorage.getItem("rt"), EMAIL = localStorage.getItem("em") || "";
+let HOME_ITEMS = [];
+const $ = id => document.getElementById(id);
+
+const ICONS = {
+  walk:"directions_walk", running:"directions_run", neck_isometric:"self_improvement",
+  shoulder_circles:"sports_gymnastics", lower_back_side_stretch:"accessibility_new",
+  glute_bridge:"fitness_center", dead_bug:"airline_seat_flat",
+  hamstring_stretch:"airline_seat_recline_extra", quad_stretch:"accessibility",
+  calf_stretch:"height", ankle_circles:"rotate_right", wrist_circles:"back_hand"
+};
+const icon = t => ICONS[t] || "fitness_center";
+
+function toast(msg, bad) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.style.background = bad ? "#ffdad6" : "#d4ff33";
+  t.style.color = bad ? "#93000a" : "#5e7400";
+  t.className = "toast show";
+  setTimeout(() => t.className = "toast", 2600);
+}
+
+async function api(method, path, body) {
+  const h = {"X-Device-Id": DEV};
+  if (body) h["Content-Type"] = "application/json";
+  if (AT) h["Authorization"] = "Bearer " + AT;
+  const r = await fetch(path, {method, headers: h, body: body ? JSON.stringify(body) : undefined});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(d.error?.message || r.statusText), {status: r.status});
+  return d;
+}
+
+function go(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("on"));
+  $("s-" + name).classList.add("on");
+  $("nav").className = ["auth","onboard"].includes(name) ? "hidden" : NAV_ON;
+  document.querySelectorAll(".nav-btn").forEach(b => {
+    const on = b.dataset.t === name;
+    b.className = (on
+      ? "nav-btn flex flex-row items-center gap-xs bg-primary-container text-on-primary-container rounded-full px-md py-xs"
+      : "nav-btn flex items-center justify-center text-secondary p-xs rounded-full") + " active:scale-90 duration-200";
+  });
+  window.scrollTo(0,0);
+  if (name === "home") loadHome();
+  if (name === "videos") loadVideos();
+  if (name === "profile") loadProfile();
+}
+document.querySelectorAll(".nav-btn").forEach(b => b.onclick = () => go(b.dataset.t));
+
+// ── auth ──
+async function doAuth(mode) {
+  const email = $("a-email").value.trim() || `demo.${Date.now()}@example.com`;
+  $("a-email").value = email;
+  try {
+    const d = await api("POST", `/v1/auth/${mode}`, {email, password: $("a-pass").value});
+    AT = d.access_token; RT = d.refresh_token; EMAIL = email;
+    localStorage.setItem("at",AT); localStorage.setItem("rt",RT); localStorage.setItem("em",email);
+    $("a-err").className = "hidden";
+    await route();
+  } catch (e) {
+    $("a-err").textContent = e.message;
+    $("a-err").className = "rounded-lg px-md py-sm font-body-md bg-error-container text-on-error-container";
+  }
+}
+
+async function route() {
+  const p = await api("GET", "/v1/profile");
+  if (!p.onboarded) { await loadOnboarding(); go("onboard"); return; }
+  if (p.referred) { $("refer-msg").textContent = "We can't suggest exercises based on what you selected."; go("refer"); $("nav").className = NAV_ON; return; }
+  go("home");
+}
+
+// ── onboarding ──
+const GOALS = [["health","Health"],["fitness","Fitness"],["flexibility","Flexibility"],["habit","Build a habit"]];
+const BANDS = [["beginner","Beginner"],["1m","1 month"],["2m","2 months"],["3m","3 months"],["experienced","Little experience"]];
+let goal="health", band="beginner", picked=new Set();
+
+function chip(label, on, fn, danger) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.className = "px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors " + (on
+    ? (danger ? "bg-error-container border-error text-on-error-container"
+              : "bg-primary-fixed/20 border-primary-fixed text-on-primary-fixed-variant")
+    : "bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant");
+  b.onclick = fn;
+  return b;
+}
+
+async function loadOnboarding() {
+  const g = $("o-goals"); g.innerHTML = "";
+  GOALS.forEach(([v,l]) => g.appendChild(chip(l, goal===v, () => {goal=v; loadOnboarding();})));
+  const bb = $("o-bands"); bb.innerHTML = "";
+  BANDS.forEach(([v,l]) => bb.appendChild(chip(l, band===v, () => {band=v; loadOnboarding();})));
+  const {conditions} = await api("GET", "/v1/conditions");
+  const c = $("o-conds"); c.innerHTML = "";
+  conditions.forEach(cd => {
+    const refer = cd.bucket === "refer";
+    c.appendChild(chip(cd.name + (refer ? " ⚠" : ""), picked.has(cd.code), () => {
+      if (cd.code === "none") { picked.clear(); picked.add("none"); }
+      else { picked.delete("none"); picked.has(cd.code) ? picked.delete(cd.code) : picked.add(cd.code); }
+      loadOnboarding();
+    }, refer));
+  });
+}
+
+async function submitOnboarding() {
+  try {
+    const d = await api("POST", "/v1/profile/onboarding", {
+      age: parseInt($("o-age").value,10), goal, experience_band: band, condition_codes:[...picked]});
+    $("o-err").className = "hidden";
+    if (d.referred) { $("refer-msg").textContent = d.message; go("refer"); $("nav").className = NAV_ON; return; }
+    go("home");
+  } catch (e) {
+    $("o-err").textContent = e.message;
+    $("o-err").className = "rounded-lg px-md py-sm font-body-md bg-error-container text-on-error-container";
+  }
+}
+
+// ── activity screen ──
+async function loadHome() {
+  $("h-avatar").textContent = (EMAIL[0] || "?").toUpperCase();
+  $("h-hello").textContent = "Welcome back, " + EMAIL.split("@")[0] + "!";
+
+  const d = await api("GET", "/v1/dashboard/summary");
+  $("h-streak").textContent = d.streak.current + " Day Streak";
+
+  // chart with a real y-axis
+  const max = Math.max(1, ...d.week.map(w => w.count));
+  const top = Math.max(2, Math.ceil(max / 2) * 2);
+  $("h-yaxis").innerHTML = [top, Math.round(top/2), 0].map(v => `<span>${v}</span>`).join("");
+  $("h-bars").innerHTML = d.week.map(w =>
+    `<div class="w-full bg-[#419E4B] rounded-t-md" style="height:${w.count?Math.max(6,(w.count/top)*100):2}%;opacity:${w.count?1:.25}"></div>`).join("");
+  $("h-days").innerHTML = d.week.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
+
+  const items = d.suggestions.all_items || [];
+  HOME_ITEMS = items;
+  $("h-add-btn").classList.toggle("hidden", !!d.suggestions.referred);
+
+  // quick actions — first two outstanding, default tier only (an optional
+  // exercise the user hasn't expanded into view yet shouldn't jump the queue)
+  const quick = items.filter(i => !i.completed && i.tier !== "optional").slice(0,2);
+  $("h-quick").innerHTML = quick.length ? quick.map((i,n) => `
+    <button onclick="quickLog('${i.activity_type}',${i.amount},${i.sets})"
+      class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md flex items-center gap-sm active:scale-95 duration-200">
+      <div class="w-10 h-10 rounded-full ${n?'bg-tertiary-container text-on-tertiary-container':'bg-primary-container text-on-primary-container'} flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined">${icon(i.activity_type)}</span></div>
+      <span class="font-label-bold text-label-bold text-on-surface text-left">Quick ${i.display_name.split(" ")[0]}</span>
+    </button>`).join("")
+    : `<div class="col-span-2 bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md font-body-md text-on-surface-variant text-center">All done for today.</div>`;
+
+  // recommended today — 2-col cards with fields, as page2
+  function renderCard(i) {
+    const single = i.prescription_type === "distance" || i.prescription_type === "duration";
+    const amountLabel = i.prescription_type === "reps" ? "Reps"
+                      : i.prescription_type === "hold" ? "Hold (s)"
+                      : i.prescription_type === "distance" ? "Distance" : "Minutes";
+    return `
+    <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-md space-y-md flex flex-col">
+      <div class="space-y-xs">
+        <div class="flex items-center justify-between h-4 mb-1">
+          <label class="text-label-sm text-secondary">Activity Type</label>
+          <div class="flex items-center gap-xs">
+            ${i.tier === "optional" ? `<span class="text-label-sm text-secondary bg-surface-variant rounded-full px-xs">Optional</span>` : ""}
+            <button onclick="removeExercise('${i.activity_type}')" aria-label="Remove from your plan"
+              class="text-secondary hover:text-error">
+              <span class="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
+        </div>
+        <div class="bg-surface-container-low rounded-DEFAULT flex items-center justify-center gap-xs h-10 px-md">
+          <span class="material-symbols-outlined text-secondary text-[18px]">${icon(i.activity_type)}</span>
+          <span class="font-body-md text-on-surface text-sm truncate">${i.display_name}</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-sm items-stretch">
+        <div class="space-y-xs flex flex-col min-w-0">
+          <label class="text-label-sm text-secondary truncate block h-4 mb-1">Sets</label>
+          ${single
+            ? `<div class="bg-surface-container-low rounded-DEFAULT h-10 flex items-center justify-center"><span class="font-body-md text-on-surface-variant text-xs">—</span></div>`
+            : `<input id="s-${i.activity_type}" type="number" min="1" value="${i.sets}"
+                 class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">`}
+        </div>
+        <div class="space-y-xs flex flex-col min-w-0">
+          <label class="text-label-sm text-secondary truncate block h-4 mb-1">${amountLabel}</label>
+          <input id="q-${i.activity_type}" type="number" step="any" value="${i.amount}"
+            class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">
+        </div>
+      </div>
+      <p class="font-label-sm text-label-sm text-on-surface-variant text-center flex items-center justify-center gap-xs">
+        ${i.prescription}${i.est_minutes ? ` · about ${i.est_minutes} min` : ""}${i.rest_seconds ? ` · ${i.rest_seconds}s rest` : ""}
+        ${i.caution ? `
+          <button onclick="toggleCaution('${i.activity_type}')" aria-label="Safety note"
+            class="w-5 h-5 rounded-full bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[14px]">priority_high</span>
+          </button>` : ""}
+      </p>
+      ${i.caution ? `<p id="cau-${i.activity_type}" class="hidden font-label-sm text-label-sm text-on-error-container bg-error-container rounded-DEFAULT px-sm py-xs">${i.caution}</p>` : ""}
+      ${(i.demo_gif || (i.demo_images && i.demo_images.length)) ? `
+        <button onclick="openDemo('${i.activity_type}')"
+          class="flex items-center justify-center gap-xs text-primary font-label-bold text-label-bold">
+          <span class="material-symbols-outlined text-[18px]">play_circle</span> Watch video
+        </button>` : ""}
+      <div class="flex-1"></div>
+      <button onclick="logCard('${i.activity_type}',${single})"
+        class="w-full ${i.completed ? 'bg-surface-container-low text-on-surface-variant' : 'bg-primary text-on-primary'} py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
+        ${i.completed ? 'Logged today' : 'Save Activity'}
+      </button>
+    </div>`;
+  }
+
+  // Default and optional both show directly — no click needed. The "Optional"
+  // pill on the card itself (see renderCard) is the only thing distinguishing
+  // them, since the whole point of a tier is to not gate anything behind a tap.
+  $("h-cards").innerHTML = items.length ? items.map(renderCard).join("")
+    : `<div class="col-span-2 bg-surface-container-lowest ambient-shadow rounded-lg p-lg font-body-md text-on-surface-variant text-center">
+         No exercises suggested — you were asked to see a doctor first.</div>`;
+
+  $("h-tier-note").textContent = d.suggestions.tier_note || "";
+  $("h-tier-note").classList.toggle("hidden", !d.suggestions.tier_note);
+
+  // recent logs
+  $("h-recent").innerHTML = d.recent.length ? d.recent.map(r => `
+    <div class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md flex items-center justify-between">
+      <div class="flex items-center gap-md min-w-0">
+        <div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center text-secondary shrink-0">
+          <span class="material-symbols-outlined">${icon(r.activity_type || '')}</span></div>
+        <div class="min-w-0">
+          <h4 class="font-label-bold text-label-bold text-on-surface truncate">${r.display_name}</h4>
+          <p class="font-label-sm text-label-sm text-secondary">${new Date(r.logged_at).toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'})}</p>
+        </div>
+      </div>
+      <span class="font-body-md text-body-md font-bold shrink-0 ${r.implausible?'text-error':'text-on-surface'}">${r.prescription}${r.implausible?' ⚠':''}</span>
+    </div>`).join("")
+    : `<div class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md font-body-md text-on-surface-variant">Nothing logged yet.</div>`;
+}
+
+async function logCard(type, single) {
+  const amount = parseFloat($("q-" + type).value);
+  const sets = single ? 1 : parseInt($("s-" + type).value, 10) || 1;
+  await send(type, amount, sets);
+}
+async function quickLog(type, amount, sets) { await send(type, amount, sets); }
+
+async function send(type, amount, sets) {
+  try {
+    const d = await api("POST", "/v1/activities", {activity_type: type, amount, sets});
+    const l = d.logged[0];
+    toast(l.implausible
+      ? "Saved — that totals more than expected, so it won't count towards progress"
+      : `Saved ${l.prescription} · ${d.streak.current} day streak`, l.implausible);
+    loadHome();
+  } catch (e) { toast(e.message, true); }
+}
+
+function voiceStub() { toast("Voice logging isn't wired up yet"); }
+
+function toggleCaution(activityType) {
+  $("cau-" + activityType).classList.toggle("hidden");
+}
+
+// ── manual program control (14.7): add from the catalogue, remove any entry ──
+async function openCatalogue() {
+  const { catalogue } = await api("GET", "/v1/program/catalogue");
+  $("catalogue-list").innerHTML = catalogue.length ? catalogue.map(c => `
+    <div class="bg-surface-container-low rounded-DEFAULT p-md flex items-center gap-sm">
+      <div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center text-secondary shrink-0">
+        <span class="material-symbols-outlined">${icon(c.activity_type)}</span></div>
+      <div class="flex-1 min-w-0">
+        <h4 class="font-label-bold text-label-bold text-on-surface">${c.display_name}</h4>
+        ${c.caution ? `<p class="font-label-sm text-label-sm ${c.verdict === 'avoid' ? 'text-error' : 'text-on-surface-variant'}">${c.verdict === 'avoid' ? '⚠ ' : ''}${c.caution}</p>` : ""}
+      </div>
+      <button onclick="addFromCatalogue('${c.activity_type}')"
+        class="shrink-0 ${c.verdict === 'avoid' ? 'bg-error-container text-on-error-container' : 'bg-primary text-on-primary'} px-md py-xs rounded-full font-label-bold text-label-bold hover:opacity-90">
+        ${c.verdict === 'avoid' ? 'Blocked — add anyway' : 'Add'}</button>
+    </div>`).join("")
+    : `<p class="font-body-md text-on-surface-variant text-center py-lg">Everything is already on your dashboard.</p>`;
+  const m = $("catalogue-modal");
+  m.classList.remove("hidden");
+  m.classList.add("flex");
+}
+
+function closeCatalogue() {
+  const m = $("catalogue-modal");
+  m.classList.add("hidden");
+  m.classList.remove("flex");
+}
+
+async function addFromCatalogue(activityType, overrideConfirmed) {
+  try {
+    const d = await api("POST", "/v1/program/entries",
+      { activity_type: activityType, override_confirmed: !!overrideConfirmed });
+    if (d.needs_confirmation) {
+      const ok = confirm(
+        d.warning_text + "\n\nClick OK only if a doctor has advised you to do this. " +
+        "Click Cancel to keep it blocked."
+      );
+      if (ok) await addFromCatalogue(activityType, true);
+      return;
+    }
+    closeCatalogue();
+    await loadHome();
+    toast("Added to your plan");
+  } catch (e) { toast(e.message, true); }
+}
+
+async function removeExercise(activityType) {
+  if (!confirm("Remove this from your plan?")) return;
+  try {
+    await api("DELETE", "/v1/program/entries/" + activityType);
+    await loadHome();
+    toast("Removed from your plan");
+  } catch (e) { toast(e.message, true); }
+}
+
+// ── edit conditions (first-layer overlay, opened from Profile) ──
+let editPicked = new Set();
+let editProfile = null;
+
+async function openConditionEditor() {
+  const [p, c] = await Promise.all([api("GET", "/v1/profile"), api("GET", "/v1/conditions")]);
+  editProfile = p;
+  editPicked = new Set(p.conditions.map(x => x.code));
+  if (!editPicked.size) editPicked.add("none");
+  renderConditionEditor(c.conditions);
+  $("cm-err").className = "hidden";
+  const m = $("cond-modal");
+  m.classList.remove("hidden");
+  m.classList.add("flex");
+}
+
+function renderConditionEditor(conditions) {
+  const list = $("cm-list");
+  list.innerHTML = "";
+  conditions.forEach(cd => {
+    const refer = cd.bucket === "refer";
+    list.appendChild(chip(cd.name + (refer ? " ⚠" : ""), editPicked.has(cd.code), () => {
+      if (cd.code === "none") { editPicked.clear(); editPicked.add("none"); }
+      else { editPicked.delete("none"); editPicked.has(cd.code) ? editPicked.delete(cd.code) : editPicked.add(cd.code); }
+      renderConditionEditor(conditions);
+    }, refer));
+  });
+}
+
+async function saveConditionEditor() {
+  try {
+    const d = await api("POST", "/v1/profile/onboarding", {
+      age: editProfile.age, goal: editProfile.goal, experience_band: editProfile.experience_band,
+      unit_preference: editProfile.unit_preference, condition_codes: [...editPicked],
+    });
+    closeConditionEditor();
+    if (d.referred) {
+      $("refer-msg").textContent = d.message;
+      go("refer");
+      $("nav").className = NAV_ON;
+      return;
+    }
+    await loadProfile();
+    toast("Conditions updated");
+  } catch (e) {
+    $("cm-err").textContent = e.message;
+    $("cm-err").className = "font-body-md text-on-error-container bg-error-container rounded px-sm py-xs";
+  }
+}
+
+function closeConditionEditor() {
+  const m = $("cond-modal");
+  m.classList.add("hidden");
+  m.classList.remove("flex");
+}
+
+// ── exercise demo modal (first-layer overlay, opened from a dashboard card) ──
+let dmFrameTimer = null;
+
+function openDemo(activityType) {
+  const i = HOME_ITEMS.find(x => x.activity_type === activityType);
+  if (!i) return;
+  $("dm-title").textContent = i.display_name;
+  $("dm-steps").innerHTML = (i.instructions || []).map(s => `<li>${s}</li>`).join("");
+
+  clearInterval(dmFrameTimer);
+  if (i.demo_gif) {
+    $("dm-img").src = i.demo_gif;
+  } else if (i.demo_images && i.demo_images.length) {
+    const frames = i.demo_images;
+    let n = 0;
+    $("dm-img").src = frames[0];
+    dmFrameTimer = setInterval(() => {
+      n = 1 - n;
+      $("dm-img").src = frames[n % frames.length];
+    }, 900);
+  }
+
+  const m = $("demo-modal");
+  m.classList.remove("hidden");
+  m.classList.add("flex");
+}
+
+function closeDemo() {
+  clearInterval(dmFrameTimer);
+  dmFrameTimer = null;
+  const m = $("demo-modal");
+  m.classList.add("hidden");
+  m.classList.remove("flex");
+  $("dm-img").src = "";
+}
+
+// ── videos ──
+async function loadVideos() {
+  const d = await api("GET", "/v1/videos");
+  if (d.referred) {
+    $("v-list").innerHTML = `<div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg font-body-md text-on-surface-variant">${d.message}</div>`;
+    return;
+  }
+  $("v-list").innerHTML = d.videos.map(v => {
+    const hasGif = !!v.demo_gif;
+    const hasDemo = v.demo_images && v.demo_images.length;
+    return `
+    <article class="bg-surface-container-lowest rounded-lg p-3 ambient-shadow flex flex-col gap-sm">
+      <div class="relative w-full aspect-video rounded-[14px] overflow-hidden bg-surface-container-low">
+        ${hasGif
+          ? `<img src="${v.demo_gif}" alt="${v.display_name}" class="w-full h-full object-contain">`
+          : hasDemo
+          ? `<img id="demo-${v.activity_type}" src="${v.demo_images[0]}" alt="${v.display_name}"
+                  class="w-full h-full object-contain">
+             <span class="absolute bottom-2 right-2 bg-inverse-surface/80 text-inverse-on-surface font-label-sm text-label-sm px-2 py-1 rounded backdrop-blur-sm">
+               ${v.demo_images.length} frames</span>`
+          : `<div class="w-full h-full flex flex-col items-center justify-center gap-xs">
+               <span class="material-symbols-outlined text-[40px] text-on-surface-variant">directions_walk</span>
+               <span class="font-label-sm text-label-sm text-on-surface-variant">No demonstration needed</span>
+             </div>`}
+      </div>
+      <div class="px-1 flex flex-col gap-2">
+        <div class="flex gap-2 flex-wrap">
+          <span class="px-2 py-1 bg-primary-fixed/20 text-on-primary-fixed-variant font-label-sm text-label-sm rounded-full">${v.prescription_type}</span>
+          ${v.per_side ? '<span class="px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-label-sm rounded-full">each side</span>' : ''}
+        </div>
+        <h3 class="font-headline-sm text-headline-sm">${v.display_name}</h3>
+        ${v.instructions && v.instructions.length ? `
+          <ol class="font-body-md text-body-md text-on-surface-variant list-decimal pl-5 space-y-1">
+            ${v.instructions.map(i => `<li>${i}</li>`).join("")}
+          </ol>` : ""}
+        ${v.watch_url ? `<a href="${v.watch_url}" target="_blank" class="inline-flex items-center gap-1 text-primary font-label-bold text-label-bold mt-1">
+            Watch on YouTube <span class="material-symbols-outlined text-[16px]">open_in_new</span></a>` : ""}
+      </div>
+    </article>`;}).join("");
+
+  // Alternate the start/end frames  // Alternate the start/end frames — this IS the animation. Two static images
+  // looping beats hosting a GIF: smaller, already public domain, and it stops
+  // when the tab is hidden so it costs nothing in the background.
+  startDemoLoop(d.videos);
+}
+
+let demoTimer = null;
+function startDemoLoop(videos) {
+  if (demoTimer) clearInterval(demoTimer);
+  const framed = videos.filter(v => !v.demo_gif && v.demo_images && v.demo_images.length > 1);
+  if (!framed.length) return;
+  let i = 0;
+  demoTimer = setInterval(() => {
+    if (document.hidden) return;
+    i = 1 - i;
+    framed.forEach(v => {
+      const el = $("demo-" + v.activity_type);
+      if (el) el.src = v.demo_images[i % v.demo_images.length];
+    });
+  }, 900);
+}
+
+// ── profile ──
+async function loadProfile() {
+  const p = await api("GET", "/v1/profile");
+  $("p-body").innerHTML = `
+    <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex items-center gap-md">
+      <div class="w-24 h-24 rounded-full bg-primary-container flex items-center justify-center font-display-lg-mobile text-on-primary-container shrink-0">${(EMAIL[0]||"?").toUpperCase()}</div>
+      <div class="min-w-0">
+        <h2 class="font-headline-sm text-headline-sm text-on-surface truncate">${EMAIL.split("@")[0]}</h2>
+        <p class="font-body-md text-on-surface-variant mt-1">${p.age} years · ${p.goal} · ${p.experience_band}</p>
+      </div>
+    </section>
+    <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
+      <div class="flex items-center justify-between mb-md">
+        <div class="flex items-center gap-sm">
+          <span class="material-symbols-outlined text-primary">health_and_safety</span>
+          <h2 class="font-headline-sm text-headline-sm text-on-surface">Health Conditions</h2>
+        </div>
+        <button onclick="openConditionEditor()" class="font-label-bold text-label-bold text-primary">Edit</button>
+      </div>
+      ${p.conditions.map(c => `<p class="font-body-md ${c.bucket==='refer'?'text-on-error-container':'text-on-surface-variant'}">${c.name}${c.bucket==='refer'?' ⚠':''}</p>`).join("") || '<p class="font-body-md text-on-surface-variant">None</p>'}
+    </section>
+    <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col">
+      <button onclick="doLogout()" class="flex items-center justify-between py-md text-left">
+        <span class="font-body-lg text-body-lg text-primary font-medium">Log out</span></button>
+      <hr class="border-surface-variant">
+      <button onclick="delAccount()" class="flex items-center justify-between py-md text-left">
+        <span class="font-body-lg text-body-lg text-error">Delete account</span></button>
+    </section>`;
+}
+
+async function doLogout() {
+  try { await api("POST","/v1/auth/logout",{refresh_token:RT}); } catch {}
+  localStorage.clear(); AT=null; go("auth");
+}
+async function delAccount() {
+  if (!confirm("Delete your account?")) return;
+  try { await api("DELETE","/v1/account"); } catch {}
+  localStorage.clear(); AT=null; go("auth");
+}
+
+(async () => {
+  if (!AT) { go("auth"); return; }
+  try { await route(); } catch { localStorage.clear(); AT=null; go("auth"); }
+})();
+</script>
+</body>
+</html>
