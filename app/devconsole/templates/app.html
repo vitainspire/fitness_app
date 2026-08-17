@@ -833,16 +833,31 @@ async function loadProfile() {
       <div class="w-24 h-24 rounded-full bg-primary-container flex items-center justify-center font-display-lg-mobile text-on-primary-container shrink-0">${(EMAIL[0]||"?").toUpperCase()}</div>
       <div class="min-w-0 flex-1">
         <h2 class="font-headline-sm text-headline-sm text-on-surface truncate">${EMAIL.split("@")[0]}</h2>
-        <p class="font-body-md text-on-surface-variant mt-1">${p.age} years · ${p.goal} · ${p.experience_band}</p>
       </div>
-      <button onclick="openProfileEditor()" class="font-label-bold text-label-bold text-primary shrink-0">Edit</button>
     </section>
-    <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
-      <div class="flex items-center gap-sm mb-md">
-        <span class="material-symbols-outlined text-primary">health_and_safety</span>
-        <h2 class="font-headline-sm text-headline-sm text-on-surface">Health Conditions</h2>
+    <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col gap-lg">
+      <div class="flex items-center justify-end">
+        <button onclick="openProfileEditor()" class="font-label-bold text-label-bold text-primary shrink-0">Edit</button>
       </div>
-      ${p.conditions.map(c => `<p class="font-body-md ${c.bucket==='refer'?'text-on-error-container':'text-on-surface-variant'}">${c.name}${c.bucket==='refer'?' ⚠':''}</p>`).join("") || '<p class="font-body-md text-on-surface-variant">None</p>'}
+      <div>
+        <h2 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Age</h2>
+        <p class="font-body-md text-on-surface-variant">${p.age} years</p>
+      </div>
+      <div>
+        <h2 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Primary Goal</h2>
+        <p class="font-body-md text-on-surface-variant">${p.goal}</p>
+      </div>
+      <div>
+        <h2 class="font-headline-sm text-headline-sm text-on-surface mb-xs">Experience</h2>
+        <p class="font-body-md text-on-surface-variant">${p.experience_band}</p>
+      </div>
+      <div>
+        <div class="flex items-center gap-sm mb-xs">
+          <span class="material-symbols-outlined text-primary">health_and_safety</span>
+          <h2 class="font-headline-sm text-headline-sm text-on-surface">Health Conditions</h2>
+        </div>
+        ${p.conditions.map(c => `<p class="font-body-md ${c.bucket==='refer'?'text-on-error-container':'text-on-surface-variant'}">${c.name}${c.bucket==='refer'?' ⚠':''}</p>`).join("") || '<p class="font-body-md text-on-surface-variant">None</p>'}
+      </div>
     </section>
     <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col">
       <button onclick="doLogout()" class="flex items-center justify-between py-md text-left">
