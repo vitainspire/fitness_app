@@ -154,7 +154,7 @@ tailwind.config = { theme: { extend: {
         </div>
       </div>
       <div class="flex gap-xs flex-wrap">
-        <button onclick="setTrendRange(7, this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-primary-fixed/20 border-primary-fixed text-on-primary-fixed-variant">7d</button>
+        <button id="h-trend-7" onclick="setTrendRange(7, this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-primary-fixed/20 border-primary-fixed text-on-primary-fixed-variant">7d</button>
         <button onclick="setTrendRange(15, this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant">15d</button>
         <button onclick="setTrendRange(30, this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant">30d</button>
         <button onclick="toggleCustomRange(this)" class="trend-btn px-md py-sm rounded-full font-label-sm text-label-sm border transition-colors bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-variant">Custom</button>
@@ -164,6 +164,7 @@ tailwind.config = { theme: { extend: {
         <span class="font-body-md text-on-surface-variant">to</span>
         <input id="h-custom-end" type="date" class="bg-surface-container-low border-none rounded-lg px-sm py-xs font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
         <button onclick="applyCustomRange()" class="bg-primary text-on-primary px-md py-xs rounded-full font-label-bold text-label-bold hover:opacity-90">Go</button>
+        <button onclick="resetTrendRange()" class="bg-surface-container text-on-surface-variant px-md py-xs rounded-full font-label-bold text-label-bold border border-outline-variant hover:bg-surface-variant">Reset</button>
       </div>
       <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
         <div class="flex h-40">
@@ -539,6 +540,13 @@ async function applyCustomRange() {
     $("h-trend-title").textContent = "Trend — " + start + " to " + end;
     renderTrend(d.trend);
   } catch (e) { toast(e.message, true); }
+}
+
+function resetTrendRange() {
+  $("h-custom-start").value = "";
+  $("h-custom-end").value = "";
+  $("h-custom-range").classList.add("hidden");
+  setTrendRange(7, $("h-trend-7"));
 }
 
 // ── activity screen ──
