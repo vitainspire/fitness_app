@@ -136,13 +136,12 @@ tailwind.config = { theme: { extend: {
   </header>
 
   <main class="px-container-margin py-md space-y-xl max-w-md mx-auto">
-    <!-- title + quick actions -->
+    <!-- title -->
     <section class="space-y-md">
       <h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Log Activity</h2>
       <div class="rounded-DEFAULT overflow-hidden h-32 w-full mb-md bg-primary-container">
         <img src="/static/demos/running-hero.png" alt="Runner mid-stride" class="w-full h-full object-cover">
       </div>
-      <div id="h-quick" class="grid grid-cols-2 gap-sm"></div>
     </section>
 
     <!-- chart -->
@@ -507,18 +506,6 @@ async function loadHome() {
   HOME_ITEMS = items;
   $("h-add-btn").classList.toggle("hidden", !!d.suggestions.referred);
 
-  // quick actions — first two outstanding, default tier only (an optional
-  // exercise the user hasn't expanded into view yet shouldn't jump the queue)
-  const quick = items.filter(i => !i.completed && i.tier !== "optional").slice(0,2);
-  $("h-quick").innerHTML = quick.length ? quick.map((i,n) => `
-    <button onclick="quickLog('${i.activity_type}',${i.amount},${i.sets})"
-      class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md flex items-center gap-sm active:scale-95 duration-200">
-      <div class="w-10 h-10 rounded-full ${n?'bg-tertiary-container text-on-tertiary-container':'bg-primary-container text-on-primary-container'} flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined">${icon(i.activity_type)}</span></div>
-      <span class="font-label-bold text-label-bold text-on-surface text-left">Quick ${i.display_name.split(" ")[0]}</span>
-    </button>`).join("")
-    : `<div class="col-span-2 bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md font-body-md text-on-surface-variant text-center">All done for today.</div>`;
-
   // recommended today — 2-col cards with fields, as page2
   function renderCard(i) {
     const single = i.prescription_type === "distance" || i.prescription_type === "duration";
@@ -610,8 +597,6 @@ async function logCard(type, single) {
   const sets = single ? 1 : parseInt($("s-" + type).value, 10) || 1;
   await send(type, amount, sets);
 }
-async function quickLog(type, amount, sets) { await send(type, amount, sets); }
-
 async function send(type, amount, sets) {
   try {
     const d = await api("POST", "/v1/activities", {activity_type: type, amount, sets});
