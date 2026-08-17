@@ -53,6 +53,18 @@ def profile():
         return jsonify(service.profile_summary(s, g.user_id))
 
 
+@bp.put("/profile")
+@require_auth
+def update_profile():
+    """3.4 — edit age / goal / experience_band / unit_preference in any
+    combination, without resubmitting conditions or rebuilding the program."""
+    d = _body()
+    fields = {k: v for k, v in d.items()
+              if k in ("age", "goal", "experience_band", "unit_preference")}
+    with session_scope() as s:
+        return jsonify(service.update_profile(s, g.user_id, fields=fields))
+
+
 @bp.get("/program")
 @require_auth
 def program():

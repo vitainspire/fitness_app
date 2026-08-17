@@ -117,6 +117,46 @@ def complete_onboarding(session: Session, user_id: str, *, age: int, goal: str,
     return {"referred": False, "message": None, "program": program}
 
 
+UNIT_PREFERENCES = {"km", "mi"}
+
+
+def update_profile(session: Session, user_id: str, *, fields: dict) -> dict:
+    """3.4 — edit one or more simple fields without touching conditions or the
+    program. Only age / goal / experience_band / unit_preference are settable
+    here; anything else in `fields` is ignored rather than silently accepted.
+    """
+    prof = session.get(UserProfile, user_id)
+    if prof is None:
+        raise NotFound("Complete onboarding before editing your profile.")
+
+    if "age" in fields:
+        age = fields["age"]
+        if not isinstance(age, int) or age < 18:
+            raise ValidationError("You must be 18 or over to use this app.")
+        prof.age = age
+
+    if "goal" in fields:
+        goal = fields["goal"]
+        if goal not in GOALS:
+            raise ValidationError(f"Goal must be one of: {', '.join(sorted(GOALS))}")
+        prof.goal = goal
+
+    if "experience_band" in fields:
+        band = fields["experience_band"]
+        if band not in BANDS:
+            raise ValidationError(f"Experience band must be one of: {', '.join(sorted(BANDS))}")
+        prof.experience_band = band
+
+    if "unit_preference" in fields:
+        unit = fields["unit_preference"]
+        if unit not in UNIT_PREFERENCES:
+            raise ValidationError(f"Unit preference must be one of: {', '.join(sorted(UNIT_PREFERENCES))}")
+        prof.unit_preference = unit
+
+    session.flush()
+    return profile_summary(session, user_id)
+
+
 # --- Program ---------------------------------------------------------------
 
 def _blocked_activities(session: Session, user_id: str) -> dict[str, str]:
