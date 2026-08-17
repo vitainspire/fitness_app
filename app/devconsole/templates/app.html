@@ -323,16 +323,25 @@ tailwind.config = { theme: { extend: {
       </button>
     </div>
     <div class="p-md flex flex-col gap-md">
-      <div>
+      <div id="pw-current-wrap">
         <label class="font-label-bold text-label-bold text-on-surface">Current Password</label>
         <input id="pw-current" type="password" autocomplete="current-password"
           class="w-full mt-xs bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+      </div>
+      <div id="pw-reset-wrap" class="hidden">
+        <label class="font-label-bold text-label-bold text-on-surface">Reset Code</label>
+        <input id="pw-reset-code" type="text" autocomplete="one-time-code"
+          class="w-full mt-xs bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+        <p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Sent to your email. (Dev mode: this prototype has no mail server yet, so check the backend console output for it.)</p>
       </div>
       <div>
         <label class="font-label-bold text-label-bold text-on-surface">New Password</label>
         <input id="pw-new" type="password" autocomplete="new-password"
           class="w-full mt-xs bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
-        <p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Minimum 10 characters.</p>
+        <div class="flex items-center justify-between mt-1">
+          <p class="font-label-sm text-label-sm text-on-surface-variant">Minimum 10 characters.</p>
+          <button type="button" id="pw-forgot-link" onclick="toggleForgotPassword()" class="font-label-sm text-label-sm text-primary">Forgot your password?</button>
+        </div>
       </div>
       <p id="pw-err" class="hidden font-body-md text-on-error-container bg-error-container rounded px-sm py-xs"></p>
       <button onclick="savePassword()" class="w-full bg-primary text-on-primary py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
@@ -759,10 +768,17 @@ function closeProfileEditor() {
 }
 
 // ── change password (first block, name card) ──
+let pwForgotMode = false;
+
 function openPasswordEditor() {
   $("pw-current").value = "";
   $("pw-new").value = "";
+  $("pw-reset-code").value = "";
   $("pw-err").className = "hidden";
+  pwForgotMode = false;
+  $("pw-current-wrap").classList.remove("hidden");
+  $("pw-reset-wrap").classList.add("hidden");
+  $("pw-forgot-link").textContent = "Forgot your password?";
   const m = $("pw-modal");
   m.classList.remove("hidden");
   m.classList.add("flex");
@@ -774,15 +790,45 @@ function closePasswordEditor() {
   m.classList.remove("flex");
 }
 
+async function toggleForgotPassword() {
+  pwForgotMode = !pwForgotMode;
+  $("pw-err").className = "hidden";
+  if (pwForgotMode) {
+    $("pw-current-wrap").classList.add("hidden");
+    $("pw-reset-wrap").classList.remove("hidden");
+    $("pw-forgot-link").textContent = "Know your current password?";
+    try {
+      // Same request/response shape as the standalone reset flow (1.9) - the
+      // response is identical whether or not the email exists, so there is
+      // nothing to branch on here either.
+      await api("POST", "/v1/auth/password-reset/request", {email: EMAIL});
+      toast("If that email exists, a reset code was sent.");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  } else {
+    $("pw-current-wrap").classList.remove("hidden");
+    $("pw-reset-wrap").classList.add("hidden");
+    $("pw-forgot-link").textContent = "Forgot your password?";
+  }
+}
+
 async function savePassword() {
   try {
-    await api("POST", "/v1/auth/change-password", {
-      current_password: $("pw-current").value,
-      new_password: $("pw-new").value,
-    });
+    if (pwForgotMode) {
+      await api("POST", "/v1/auth/password-reset/confirm", {
+        token: $("pw-reset-code").value.trim(),
+        password: $("pw-new").value,
+      });
+    } else {
+      await api("POST", "/v1/auth/change-password", {
+        current_password: $("pw-current").value,
+        new_password: $("pw-new").value,
+      });
+    }
     closePasswordEditor();
-    // The server revokes every session on a password change (same as reset) -
-    // this device's session is dead now too, so send the user back to login.
+    // Either path revokes every session server-side (1.9 / this device's own
+    // change) - the current session is dead now too, so return to login.
     localStorage.clear();
     AT = null; RT = null;
     go("auth");
@@ -895,12 +941,14 @@ function startDemoLoop(videos) {
 async function loadProfile() {
   const p = await api("GET", "/v1/profile");
   $("p-body").innerHTML = `
-    <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex items-center gap-md">
-      <div class="w-24 h-24 rounded-full bg-primary-container flex items-center justify-center font-display-lg-mobile text-on-primary-container shrink-0">${(EMAIL[0]||"?").toUpperCase()}</div>
-      <div class="min-w-0 flex-1">
-        <h2 class="font-headline-sm text-headline-sm text-on-surface truncate">${EMAIL.split("@")[0]}</h2>
+    <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col gap-md">
+      <div class="flex items-center gap-md">
+        <div class="w-24 h-24 rounded-full bg-primary-container flex items-center justify-center font-display-lg-mobile text-on-primary-container shrink-0">${(EMAIL[0]||"?").toUpperCase()}</div>
+        <div class="min-w-0 flex-1">
+          <h2 class="font-headline-sm text-headline-sm text-on-surface truncate">${EMAIL.split("@")[0]}</h2>
+        </div>
       </div>
-      <button onclick="openPasswordEditor()" class="font-label-bold text-label-bold text-primary shrink-0">Change Password</button>
+      <button onclick="openPasswordEditor()" class="font-label-bold text-label-bold text-primary self-start">Change Password</button>
     </section>
     <section class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col gap-lg">
       <div class="flex items-center justify-end">
