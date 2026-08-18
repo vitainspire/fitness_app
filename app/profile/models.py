@@ -76,9 +76,17 @@ class CustomExercise(Base):
     plausible_max_total: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # Soft delete (mirrors User.deleted_at): the row stays so past logs that
+    # reference it via the FK keep displaying correctly (recent_logs joins
+    # on this table by name) - it just drops out of list_custom_exercises
+    # and can no longer be logged against. This is what actually lets a
+    # user delete an exercise with history, instead of refusing outright.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
-        UniqueConstraint("user_id", "normalized_name", name="uq_custom_exercise_user_name"),
+        # No DB-level uniqueness here on purpose: a name must stay free to
+        # reuse once its old row is soft-deleted, and the service layer
+        # already enforces "no two ACTIVE exercises share a name" itself.
         CheckConstraint("measurement_type IN ('reps','distance','duration')",
                         name="custom_measurement_known"),
     )

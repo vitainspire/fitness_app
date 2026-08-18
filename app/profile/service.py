@@ -410,7 +410,7 @@ def log_activity(session: Session, user_id: str, *, activity_type: str | None = 
         # 4.4 — same entry point, same validation shape as a taxonomy log;
         # the only different source is where the ceiling/unit come from.
         custom = session.get(CustomExercise, custom_exercise_id)
-        if custom is None or custom.user_id != user_id:
+        if custom is None or custom.user_id != user_id or custom.deleted_at is not None:
             raise NotFound(f"Unknown custom exercise: {custom_exercise_id}")
         unit = unit or custom.unit
         if unit != custom.unit:
@@ -495,7 +495,8 @@ def _custom_exercise_out(row: CustomExercise) -> dict:
 
 def list_custom_exercises(session: Session, user_id: str) -> list[dict]:
     rows = session.scalars(
-        select(CustomExercise).where(CustomExercise.user_id == user_id)
+        select(CustomExercise).where(CustomExercise.user_id == user_id,
+                                      CustomExercise.deleted_at.is_(None))
         .order_by(CustomExercise.created_at)
     ).all()
     return [_custom_exercise_out(r) for r in rows]
@@ -526,14 +527,15 @@ def create_custom_exercise(session: Session, user_id: str, *, name: str,
     existing = session.scalar(
         select(CustomExercise).where(
             CustomExercise.user_id == user_id,
-            CustomExercise.normalized_name == normalized)
+            CustomExercise.normalized_name == normalized,
+            CustomExercise.deleted_at.is_(None))
     )
     if existing is not None:
         raise ValidationError(f'You already have a custom exercise called "{existing.name}".')
 
     count = session.scalar(
         select(func.count()).select_from(CustomExercise)
-        .where(CustomExercise.user_id == user_id)
+        .where(CustomExercise.user_id == user_id, CustomExercise.deleted_at.is_(None))
     )
     if count >= CUSTOM_EXERCISE_CAP:
         raise ValidationError(f"You can have at most {CUSTOM_EXERCISE_CAP} custom exercises.")
@@ -551,7 +553,7 @@ def create_custom_exercise(session: Session, user_id: str, *, name: str,
 def rename_custom_exercise(session: Session, user_id: str, exercise_id: str,
                            new_name: str) -> dict:
     row = session.get(CustomExercise, exercise_id)
-    if row is None or row.user_id != user_id:
+    if row is None or row.user_id != user_id or row.deleted_at is not None:
         raise NotFound("Custom exercise not found.")
     new_name = (new_name or "").strip()
     if not new_name:
@@ -563,6 +565,7 @@ def rename_custom_exercise(session: Session, user_id: str, exercise_id: str,
         select(CustomExercise).where(
             CustomExercise.user_id == user_id,
             CustomExercise.normalized_name == normalized,
+            CustomExercise.deleted_at.is_(None),
             CustomExercise.id != exercise_id)
     )
     if clash is not None:
@@ -574,21 +577,15 @@ def rename_custom_exercise(session: Session, user_id: str, exercise_id: str,
 
 
 def delete_custom_exercise(session: Session, user_id: str, exercise_id: str) -> dict:
+    """Soft delete (4.4). Past logs keep referencing this row via the FK -
+    recent_logs joins on it by name - so history keeps displaying exactly
+    as it did before, it just drops off list_custom_exercises and can no
+    longer be logged against (see log_activity above).
+    """
     row = session.get(CustomExercise, exercise_id)
-    if row is None or row.user_id != user_id:
+    if row is None or row.user_id != user_id or row.deleted_at is not None:
         raise NotFound("Custom exercise not found.")
-    has_logs = session.scalar(
-        select(func.count()).select_from(ActivityLog)
-        .where(ActivityLog.custom_exercise_id == exercise_id)
-    )
-    if has_logs:
-        # Deleting must never silently erase logged history (4.6's "never
-        # discard what a user entered" applies here too) - rename instead.
-        raise ValidationError(
-            f'"{row.name}" has logged history and can\'t be deleted. '
-            "Rename it instead if you want to change how it's shown."
-        )
-    session.delete(row)
+    row.deleted_at = datetime.now(timezone.utc)
     session.flush()
     return {"deleted": True}
 
