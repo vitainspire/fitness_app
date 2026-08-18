@@ -673,20 +673,44 @@ def trend(session: Session, user_id: str, *, days: int | None = None,
             raise ValidationError(f"days must be between 1 and {MAX_TREND_DAYS}.")
         start, end = today - timedelta(days=n - 1), today
 
+    # Grouped by exercise too (not just date) so the chart can show what a
+    # day's total is actually made up of, not just the number itself.
+    # custom_exercise_id is in the group-by because activity_type is NULL
+    # for every custom exercise - without it, two different custom
+    # exercises logged the same day would collapse into one row.
     rows = session.execute(
-        select(ActivityLog.local_date, func.count())
+        select(ActivityLog.local_date, ActivityLog.activity_type,
+               ActivityLog.custom_exercise_id, ActivityTaxonomy.display_name,
+               CustomExercise.name, func.count())
+        .outerjoin(ActivityTaxonomy,
+                   ActivityTaxonomy.activity_type == ActivityLog.activity_type)
+        .outerjoin(CustomExercise, CustomExercise.id == ActivityLog.custom_exercise_id)
         .where(ActivityLog.user_id == user_id,
                ActivityLog.local_date >= start,
                ActivityLog.local_date <= end,
                ActivityLog.implausible.is_(False))
-        .group_by(ActivityLog.local_date)
+        .group_by(ActivityLog.local_date, ActivityLog.activity_type,
+                  ActivityLog.custom_exercise_id, ActivityTaxonomy.display_name,
+                  CustomExercise.name)
     ).all()
-    counts = {d: n for d, n in rows}
+
+    by_date: dict = {}
+    for local_date, _activity_type, _custom_id, taxonomy_name, custom_name, n in rows:
+        name = taxonomy_name or custom_name or "Unknown"
+        by_date.setdefault(local_date, []).append({"name": name, "count": n})
+
     span = (end - start).days + 1
-    return [{"date": (start + timedelta(days=i)).isoformat(),
-             "label": (start + timedelta(days=i)).strftime("%a")[0],
-             "count": counts.get(start + timedelta(days=i), 0)}
-            for i in range(span)]
+    result = []
+    for i in range(span):
+        d = start + timedelta(days=i)
+        breakdown = by_date.get(d, [])
+        result.append({
+            "date": d.isoformat(),
+            "label": d.strftime("%a")[0],
+            "count": sum(b["count"] for b in breakdown),
+            "breakdown": breakdown,
+        })
+    return result
 
 
 def weekly_volume(session: Session, user_id: str) -> list[dict]:

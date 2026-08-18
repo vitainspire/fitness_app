@@ -582,13 +582,62 @@ async function submitOnboarding() {
   }
 }
 
-// ── trend chart (4.3 — 7d/15d/30d + custom range) ──
+// ── trend chart (4.3 — 7d/15d/30d) ──
+// Each bar is one day (or one week, once bucketed) stacked into a segment
+// per exercise, instead of a single flat color - so the bar shows not just
+// how much happened, but what made it up. Colors are assigned to the
+// busiest few exercise names across the whole visible range and stay
+// consistent bar-to-bar; anything past that cap folds into "Other" so a
+// day with 6+ different things logged doesn't turn into unreadable slivers.
+const TREND_PALETTE = ["#419E4B", "#2F6FED", "#E0A62C", "#C24E4E", "#8A5CD6"];
+const TREND_OTHER_COLOR = "#9AA0A6";
+const TREND_TOP_N = 4;
+
+function buildTrendColors(bars) {
+  const totals = {};
+  bars.forEach(b => (b.breakdown || []).forEach(x => {
+    totals[x.name] = (totals[x.name] || 0) + x.count;
+  }));
+  const ranked = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
+  const top = ranked.slice(0, TREND_TOP_N);
+  const colorMap = {};
+  top.forEach((name, i) => { colorMap[name] = TREND_PALETTE[i % TREND_PALETTE.length]; });
+  return { top, colorMap };
+}
+
+function cappedBreakdown(bar, topNames) {
+  const merged = {};
+  (bar.breakdown || []).forEach(x => {
+    const key = topNames.includes(x.name) ? x.name : "Other";
+    merged[key] = (merged[key] || 0) + x.count;
+  });
+  return [...topNames, "Other"]
+    .filter(name => merged[name])
+    .map(name => ({ name, count: merged[name] }));
+}
+
 function renderTrend(days) {
   const max = Math.max(1, ...days.map(w => w.count));
   const top = Math.max(2, Math.ceil(max / 2) * 2);
   $("h-yaxis").innerHTML = [top, Math.round(top/2), 0].map(v => `<span>${v}</span>`).join("");
-  $("h-bars").innerHTML = days.map(w =>
-    `<div class="w-full bg-[#419E4B] rounded-t-lg" style="height:${w.count?Math.max(6,(w.count/top)*100):2}%;opacity:${w.count?1:.25}"></div>`).join("");
+
+  const { top: topNames, colorMap } = buildTrendColors(days);
+
+  $("h-bars").innerHTML = days.map(w => {
+    if (!w.count) {
+      return `<div class="w-full bg-[#419E4B] rounded-t-lg" style="height:2%;opacity:.25"></div>`;
+    }
+    const barPct = Math.max(6, (w.count / top) * 100);
+    const segs = cappedBreakdown(w, topNames).map(s => {
+      const pct = Math.round((s.count / w.count) * 100);
+      const color = colorMap[s.name] || TREND_OTHER_COLOR;
+      const label = s.name.replace(/'/g, "\\'");
+      return `<div style="height:${(s.count / w.count) * 100}%;background:${color}"
+        onclick="toast('${label}: ${s.count} of ${w.count} (${pct}%)')"></div>`;
+    }).join("");
+    return `<div class="w-full flex flex-col-reverse rounded-t-lg overflow-hidden" style="height:${barPct}%">${segs}</div>`;
+  }).join("");
+
   $("h-days").innerHTML = days.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
 }
 
@@ -603,10 +652,15 @@ function toWeeklyBuckets(daily) {
   for (let i = 0; i < daily.length; i += 7) {
     const chunk = daily.slice(i, i + 7);
     const total = chunk.reduce((sum, d) => sum + d.count, 0);
+    const merged = {};
+    chunk.forEach(d => (d.breakdown || []).forEach(b => {
+      merged[b.name] = (merged[b.name] || 0) + b.count;
+    }));
     weeks.push({
       date: chunk[0].date,
       label: new Date(chunk[0].date).toLocaleDateString([], {month: "short", day: "numeric"}),
       count: total,
+      breakdown: Object.keys(merged).map(name => ({ name, count: merged[name] })),
     });
   }
   return weeks;
