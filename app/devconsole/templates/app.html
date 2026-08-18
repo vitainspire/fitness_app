@@ -167,7 +167,7 @@ tailwind.config = { theme: { extend: {
               <div class="w-full h-px bg-surface-variant/50"></div>
               <div class="w-full h-px bg-surface-variant/50"></div>
             </div>
-            <div id="h-bars" class="flex-1 relative z-10 pb-6"></div>
+            <div id="h-bars" class="flex-1 flex items-end justify-between z-10 pb-6 gap-2"></div>
             <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-secondary/60 font-medium pt-2"></div>
           </div>
         </div>
@@ -553,32 +553,8 @@ function renderTrend(days) {
   const max = Math.max(1, ...days.map(w => w.count));
   const top = Math.max(2, Math.ceil(max / 2) * 2);
   $("h-yaxis").innerHTML = [top, Math.round(top/2), 0].map(v => `<span>${v}</span>`).join("");
-
-  // Continuous line + shaded area under it (index-chart style) instead of
-  // separate bars. viewBox is a fixed 0-100 box with preserveAspectRatio
-  //="none" so it stretches to fill the card regardless of how many points
-  // there are; non-scaling-stroke keeps the line width constant even
-  // though the box is stretched non-uniformly.
-  const n = days.length;
-  const pts = days.map((w, i) => [
-    n > 1 ? (i / (n - 1)) * 100 : 50,
-    100 - (w.count / top) * 100,
-  ]);
-  const linePath = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
-  const areaPath = `${linePath} L${pts[pts.length - 1][0].toFixed(2)},100 L${pts[0][0].toFixed(2)},100 Z`;
-
-  $("h-bars").innerHTML = `
-    <svg class="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#419E4B" stop-opacity="0.35"/>
-          <stop offset="100%" stop-color="#419E4B" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <path d="${areaPath}" fill="url(#trendFill)" stroke="none"/>
-      <path d="${linePath}" fill="none" stroke="#419E4B" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    </svg>`;
-
+  $("h-bars").innerHTML = days.map(w =>
+    `<div class="w-full bg-[#419E4B] rounded-t-md" style="height:${w.count?Math.max(6,(w.count/top)*100):2}%;opacity:${w.count?1:.25}"></div>`).join("");
   $("h-days").innerHTML = days.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
 }
 
