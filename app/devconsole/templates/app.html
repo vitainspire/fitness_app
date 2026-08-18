@@ -196,13 +196,6 @@ tailwind.config = { theme: { extend: {
       <div id="h-custom-cards" class="grid grid-cols-2 gap-sm items-stretch"></div>
     </section>
 
-    <!-- recent logs -->
-    <section class="space-y-sm">
-      <div class="flex items-center justify-between">
-        <h3 class="font-headline-sm text-headline-sm text-on-surface">Recent Logs</h3>
-      </div>
-      <div id="h-recent" class="space-y-card-gap"></div>
-    </section>
   </main>
 
   <!-- voice FAB -->
@@ -786,21 +779,6 @@ async function loadHome() {
 
   $("h-tier-note").textContent = d.suggestions.tier_note || "";
   $("h-tier-note").classList.toggle("hidden", !d.suggestions.tier_note);
-
-  // recent logs
-  $("h-recent").innerHTML = d.recent.length ? d.recent.map(r => `
-    <div class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md flex items-center justify-between">
-      <div class="flex items-center gap-md min-w-0">
-        <div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center text-secondary shrink-0">
-          <span class="material-symbols-outlined">${icon(r.activity_type || '')}</span></div>
-        <div class="min-w-0">
-          <h4 class="font-label-bold text-label-bold text-on-surface truncate">${r.display_name}</h4>
-          <p class="font-label-sm text-label-sm text-secondary">${new Date(r.logged_at).toLocaleString([], {weekday:'short', hour:'2-digit', minute:'2-digit'})}</p>
-        </div>
-      </div>
-      <span class="font-body-md text-body-md font-bold shrink-0 ${r.implausible?'text-error':'text-on-surface'}">${r.prescription}${r.implausible?' ⚠':''}</span>
-    </div>`).join("")
-    : `<div class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md font-body-md text-on-surface-variant">Nothing logged yet.</div>`;
 
   // your own exercises — same card layout as renderCard above, but its own
   // section: creating/logging here only ever calls custom-exercise
