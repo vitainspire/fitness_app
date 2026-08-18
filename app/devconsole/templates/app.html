@@ -155,19 +155,12 @@ tailwind.config = { theme: { extend: {
             <option value="7">7 Days</option>
             <option value="15">15 Days</option>
             <option value="30">30 Days</option>
-            <option value="more">More</option>
           </select>
         </div>
         <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
           <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
           <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
         </div>
-      </div>
-      <div id="h-custom-days-wrap" class="hidden flex items-center gap-sm">
-        <input id="h-custom-days-input" type="number" min="1" max="365" placeholder="e.g. 60"
-          class="w-24 bg-surface-container-low border-none rounded-lg px-sm py-xs font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
-        <span class="font-label-sm text-label-sm text-on-surface-variant">days</span>
-        <button onclick="applyCustomDays()" class="bg-primary text-on-primary px-md py-xs rounded-full font-label-bold text-label-bold hover:opacity-90">Go</button>
       </div>
       <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
         <div class="flex h-48">
@@ -624,23 +617,8 @@ function prepareTrendData(daily) {
 }
 
 async function onTrendPeriodChange(value) {
-  if (value === "more") {
-    $("h-custom-days-wrap").classList.remove("hidden");
-    $("h-custom-days-input").focus();
-    return;
-  }
-  $("h-custom-days-wrap").classList.add("hidden");
   try {
     const d = await api("GET", `/v1/dashboard/trend?days=${value}`);
-    renderTrend(prepareTrendData(d.trend));
-  } catch (e) { toast(e.message, true); }
-}
-
-async function applyCustomDays() {
-  const days = parseInt($("h-custom-days-input").value, 10);
-  if (!days || days < 1) { toast("Enter a valid number of days", true); return; }
-  try {
-    const d = await api("GET", `/v1/dashboard/trend?days=${days}`);
     renderTrend(prepareTrendData(d.trend));
   } catch (e) { toast(e.message, true); }
 }
