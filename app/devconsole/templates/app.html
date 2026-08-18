@@ -599,6 +599,30 @@ function renderTrend(days) {
   $("h-days").innerHTML = days.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
 }
 
+// Beyond 15 days, one bar per day gets too cramped for the box (fixed gaps
+// between bars add up to more width than the box has). Group into weekly
+// totals instead - fewer, wider bars, and a more useful number anyway once
+// you're looking at a month or more.
+const TREND_DAILY_LIMIT = 15;
+
+function toWeeklyBuckets(daily) {
+  const weeks = [];
+  for (let i = 0; i < daily.length; i += 7) {
+    const chunk = daily.slice(i, i + 7);
+    const total = chunk.reduce((sum, d) => sum + d.count, 0);
+    weeks.push({
+      date: chunk[0].date,
+      label: new Date(chunk[0].date).toLocaleDateString([], {month: "short", day: "numeric"}),
+      count: total,
+    });
+  }
+  return weeks;
+}
+
+function prepareTrendData(daily) {
+  return daily.length > TREND_DAILY_LIMIT ? toWeeklyBuckets(daily) : daily;
+}
+
 async function onTrendPeriodChange(value) {
   if (value === "more") {
     $("h-custom-days-wrap").classList.remove("hidden");
@@ -608,7 +632,7 @@ async function onTrendPeriodChange(value) {
   $("h-custom-days-wrap").classList.add("hidden");
   try {
     const d = await api("GET", `/v1/dashboard/trend?days=${value}`);
-    renderTrend(d.trend);
+    renderTrend(prepareTrendData(d.trend));
   } catch (e) { toast(e.message, true); }
 }
 
@@ -617,7 +641,7 @@ async function applyCustomDays() {
   if (!days || days < 1) { toast("Enter a valid number of days", true); return; }
   try {
     const d = await api("GET", `/v1/dashboard/trend?days=${days}`);
-    renderTrend(d.trend);
+    renderTrend(prepareTrendData(d.trend));
   } catch (e) { toast(e.message, true); }
 }
 
@@ -760,7 +784,7 @@ async function loadHome() {
 
   const d = await api("GET", "/v1/dashboard/summary");
   $("h-streak").textContent = d.streak.current + " Day Streak";
-  renderTrend(d.week);
+  renderTrend(prepareTrendData(d.week));
 
   const items = d.suggestions.all_items || [];
   HOME_ITEMS = items;
