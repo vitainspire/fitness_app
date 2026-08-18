@@ -184,8 +184,14 @@ tailwind.config = { theme: { extend: {
     <section class="space-y-md">
       <h3 class="font-headline-sm text-headline-sm text-on-surface">Exercise Breakdown</h3>
       <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col items-center gap-md">
-        <div id="h-pie" class="w-40 h-40 rounded-full"></div>
-        <div id="h-pie-legend" class="w-full flex flex-col gap-xs"></div>
+        <div class="relative w-40 h-40">
+          <svg id="h-pie" viewBox="0 0 100 100" class="w-40 h-40"></svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-sm">
+            <span id="h-pie-center-name" class="font-label-bold text-label-bold text-on-surface truncate max-w-full"></span>
+            <span id="h-pie-center-pct" class="font-headline-sm text-headline-sm text-on-surface"></span>
+          </div>
+        </div>
+        <p class="font-label-sm text-label-sm text-on-surface-variant text-center">Tap or hover a slice to see it</p>
       </div>
     </section>
 
@@ -649,37 +655,67 @@ async function loadExerciseBreakdown(days) {
   } catch (e) { toast(e.message, true); }
 }
 
+// Drawn as an interactive SVG donut (not a CSS conic-gradient) specifically
+// because each slice needs its own hover/tap target - a single gradient
+// background has no per-slice element to attach a listener to. No permanent
+// list below it; the center label shows one exercise at a time, defaulting
+// to the largest (items are already sorted by count from the backend).
+let pieItems = [];
+
+function polarToXY(cx, cy, r, angleDeg) {
+  const rad = (angleDeg - 90) * Math.PI / 180; // -90 so 0% starts at 12 o'clock
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+function donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg) {
+  const largeArc = (endDeg - startDeg) > 180 ? 1 : 0;
+  const p1 = polarToXY(cx, cy, rOuter, startDeg);
+  const p2 = polarToXY(cx, cy, rOuter, endDeg);
+  const p3 = polarToXY(cx, cy, rInner, endDeg);
+  const p4 = polarToXY(cx, cy, rInner, startDeg);
+  return [
+    `M ${p1.x} ${p1.y}`,
+    `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x} ${p2.y}`,
+    `L ${p3.x} ${p3.y}`,
+    `A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x} ${p4.y}`,
+    "Z",
+  ].join(" ");
+}
+
+function showPieCenter(i) {
+  const item = pieItems[i];
+  if (!item) return;
+  $("h-pie-center-name").textContent = item.name;
+  $("h-pie-center-pct").textContent = item.percentage + "%";
+}
+
+function showPieDefault() {
+  if (pieItems.length) showPieCenter(0); // largest - already sorted by count
+}
+
 function renderExerciseBreakdown(items) {
-  const pie = $("h-pie");
-  const legend = $("h-pie-legend");
+  pieItems = items;
+  const svg = $("h-pie");
 
   if (!items.length) {
-    pie.style.background = "none";
-    pie.className = "w-40 h-40 rounded-full bg-surface-container-low flex items-center justify-center p-md text-center";
-    pie.innerHTML = `<span class="font-body-md text-on-surface-variant">Nothing logged yet</span>`;
-    legend.innerHTML = "";
+    svg.innerHTML = `<circle cx="50" cy="50" r="38" fill="none" stroke="#e2e2e5" stroke-width="20"/>`;
+    $("h-pie-center-name").textContent = "No data";
+    $("h-pie-center-pct").textContent = "";
     return;
   }
 
-  pie.className = "w-40 h-40 rounded-full";
-  pie.innerHTML = "";
-  let acc = 0;
-  const stops = items.map((item, i) => {
+  let accDeg = 0;
+  svg.innerHTML = items.map((item, i) => {
     const color = PIE_PALETTE[i % PIE_PALETTE.length];
-    const start = acc;
-    acc += item.percentage;
-    return `${color} ${start}% ${acc}%`;
-  }).join(", ");
-  pie.style.background = `conic-gradient(${stops})`;
+    const startDeg = accDeg;
+    accDeg = Math.min(accDeg + item.percentage * 3.6, 359.999);
+    const d = donutSlicePath(50, 50, 48, 28, startDeg, accDeg);
+    return `<path d="${d}" fill="${color}"
+      onmouseenter="showPieCenter(${i})" onmouseleave="showPieDefault()"
+      onclick="showPieCenter(${i})"></path>`;
+  }).join("");
 
-  legend.innerHTML = items.map((item, i) => `
-    <div class="flex items-center justify-between">
-      <span class="inline-flex items-center gap-xs min-w-0">
-        <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background:${PIE_PALETTE[i % PIE_PALETTE.length]}"></span>
-        <span class="font-label-sm text-label-sm text-on-surface truncate">${item.name}</span>
-      </span>
-      <span class="font-label-bold text-label-bold text-on-surface-variant shrink-0">${item.percentage}%</span>
-    </div>`).join("");
+  showPieDefault();
 }
 
 // ── custom exercises (4.4) — personal, tracking-only, never suggested ──
