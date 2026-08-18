@@ -38,6 +38,16 @@ class User(Base):
     # 1.10 — soft delete, then hard purge after the documented grace window.
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
+    # 1.7 — separate identity/role from end users. Deliberately just a flag,
+    # not a separate table: the handoff calls for "a separate table/flag",
+    # and a flag is the simplest thing that satisfies "staff vs not staff"
+    # without inventing a role system nothing here needs yet. Never set via
+    # any app endpoint — flipped directly in the database by whoever
+    # administers the deployment (this mirrors "existing admin framework
+    # behind SSO/VPN, not a service you build" from REQUIREMENTS 1.7).
+    is_staff: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False,
+                                            server_default="false")
+
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )

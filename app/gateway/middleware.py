@@ -15,7 +15,7 @@ from flask import current_app, g, request
 
 from app.auth import tokens as tk
 from app.platform import redis_clients as rc
-from app.platform.errors import RateLimited, Unauthorized
+from app.platform.errors import Forbidden, RateLimited, Unauthorized
 
 
 def _client_ip() -> str:
@@ -81,6 +81,28 @@ def require_auth(fn: Callable) -> Callable:
         g.device_id = _device_id()
 
         enforce_user_rate_limit(g.user_id)
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def require_staff(fn: Callable) -> Callable:
+    """1.7 — staff-only routes. Must sit *inside* @require_auth (below it in
+    the decorator stack) since it needs g.user_id already set.
+
+    A DB lookup per request is deliberate, not an oversight: the flag is
+    never in the JWT, so revoking staff access takes effect on the very
+    next request rather than waiting for every outstanding token to expire.
+    """
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        from app.auth.models import User
+        from app.platform.db import session_scope
+
+        with session_scope() as session:
+            user = session.get(User, g.user_id)
+            if user is None or not user.is_staff:
+                raise Forbidden("Staff access required.")
         return fn(*args, **kwargs)
 
     return wrapper

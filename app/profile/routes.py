@@ -5,9 +5,9 @@ from datetime import date
 
 from flask import Blueprint, g, jsonify, request
 
-from app.gateway.middleware import require_auth
+from app.gateway.middleware import require_auth, require_staff
 from app.platform.db import session_scope
-from app.platform.errors import Forbidden, ValidationError
+from app.platform.errors import ValidationError
 from app.profile import service
 
 bp = Blueprint("core", __name__, url_prefix="/v1")
@@ -203,16 +203,14 @@ def videos():
 
 @bp.put("/admin/videos/<activity_type>")
 @require_auth
+@require_staff
 def curate_video(activity_type: str):
     """Admin curation (7.1) — paste one watched, approved YouTube URL.
 
-    Staff auth is still an open decision (1.7); until it lands this is
-    authenticated-user only and must not ship. Guarded so it cannot.
+    Staff-only (1.7): require_staff replaces the old is_production block
+    now that a real staff role exists. Works the same in every
+    environment - gated on who you are, not which environment is running.
     """
-    from flask import current_app
-    cfg = current_app.config["APP_CONFIG"]
-    if cfg.is_production:
-        raise Forbidden("Curation requires staff authentication, which is not built yet (1.7).")
     d = _body()
     with session_scope() as s_:
         return jsonify(service.set_video(
