@@ -182,6 +182,18 @@ def dashboard_trend():
             s, g.user_id, days=days, start_date=start_date, end_date=end_date)})
 
 
+@bp.get("/dashboard/exercise-breakdown")
+@require_auth
+def dashboard_exercise_breakdown():
+    """Pie chart data - ?days=N, defaults to 7."""
+    try:
+        days = int(request.args.get("days", 7))
+    except ValueError:
+        raise ValidationError("days must be an integer.")
+    with session_scope() as s:
+        return jsonify({"breakdown": service.exercise_breakdown(s, g.user_id, days=days)})
+
+
 @bp.get("/dashboard/summary")
 @require_auth
 def dashboard():

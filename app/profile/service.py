@@ -694,6 +694,40 @@ def weekly_volume(session: Session, user_id: str) -> list[dict]:
     return trend(session, user_id, days=7)
 
 
+def exercise_breakdown(session: Session, user_id: str, *, days: int) -> list[dict]:
+    """Pie-chart data: total times each exercise was logged over the window,
+    deduplicated by exercise name (not by individual entry) - ten walks are
+    one "Walking" slice, not ten identical slivers. Percentage is share of
+    total log count, the same metric the trend bar chart already uses.
+    """
+    if days < 1 or days > MAX_TREND_DAYS:
+        raise ValidationError(f"days must be between 1 and {MAX_TREND_DAYS}.")
+    today = today_ist()
+    start = today - timedelta(days=days - 1)
+
+    rows = session.execute(
+        select(ActivityTaxonomy.display_name, CustomExercise.name, func.count())
+        .select_from(ActivityLog)
+        .outerjoin(ActivityTaxonomy,
+                   ActivityTaxonomy.activity_type == ActivityLog.activity_type)
+        .outerjoin(CustomExercise, CustomExercise.id == ActivityLog.custom_exercise_id)
+        .where(ActivityLog.user_id == user_id,
+               ActivityLog.local_date >= start,
+               ActivityLog.local_date <= today,
+               ActivityLog.implausible.is_(False))
+        .group_by(ActivityTaxonomy.display_name, CustomExercise.name)
+    ).all()
+
+    total = sum(n for _, _, n in rows)
+    result = [{
+        "name": taxonomy_name or custom_name or "Unknown",
+        "count": n,
+        "percentage": round(n / total * 100, 1) if total else 0,
+    } for taxonomy_name, custom_name, n in rows]
+    result.sort(key=lambda x: x["count"], reverse=True)
+    return result
+
+
 # --- Suggestions + videos --------------------------------------------------
 
 def _dashboard_slice(session: Session, user_id: str) -> tuple[list[dict], set[str], str]:

@@ -152,7 +152,8 @@ tailwind.config = { theme: { extend: {
           <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
           <select id="h-trend-period" onchange="onTrendPeriodChange(this.value)"
             class="bg-transparent font-label-bold text-label-bold text-on-surface border-none focus:outline-none cursor-pointer">
-            <option value="7">7 Days</option>
+            <option value="1">Today</option>
+            <option value="7" selected>7 Days</option>
             <option value="15">15 Days</option>
             <option value="30">30 Days</option>
           </select>
@@ -175,6 +176,16 @@ tailwind.config = { theme: { extend: {
             <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-secondary/60 font-medium pt-2"></div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- exercise breakdown pie chart - same period as the bar chart above,
+         one slice per exercise NAME (duplicates collapsed), not per log -->
+    <section class="space-y-md">
+      <h3 class="font-headline-sm text-headline-sm text-on-surface">Exercise Breakdown</h3>
+      <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col items-center gap-md">
+        <div id="h-pie" class="w-40 h-40 rounded-full"></div>
+        <div id="h-pie-legend" class="w-full flex flex-col gap-xs"></div>
       </div>
     </section>
 
@@ -621,6 +632,54 @@ async function onTrendPeriodChange(value) {
     const d = await api("GET", `/v1/dashboard/trend?days=${value}`);
     renderTrend(prepareTrendData(d.trend));
   } catch (e) { toast(e.message, true); }
+  loadExerciseBreakdown(value);
+}
+
+// ── exercise breakdown pie chart — one slice per exercise NAME, duplicates
+// collapsed server-side (10 walks is one slice, not ten) ──
+const PIE_PALETTE = [
+  "#419E4B", "#2F6FED", "#E0A62C", "#C24E4E", "#8A5CD6",
+  "#1AA6A0", "#D6708A", "#6B8E23", "#B5651D", "#4682B4",
+];
+
+async function loadExerciseBreakdown(days) {
+  try {
+    const d = await api("GET", `/v1/dashboard/exercise-breakdown?days=${days}`);
+    renderExerciseBreakdown(d.breakdown);
+  } catch (e) { toast(e.message, true); }
+}
+
+function renderExerciseBreakdown(items) {
+  const pie = $("h-pie");
+  const legend = $("h-pie-legend");
+
+  if (!items.length) {
+    pie.style.background = "none";
+    pie.className = "w-40 h-40 rounded-full bg-surface-container-low flex items-center justify-center p-md text-center";
+    pie.innerHTML = `<span class="font-body-md text-on-surface-variant">Nothing logged yet</span>`;
+    legend.innerHTML = "";
+    return;
+  }
+
+  pie.className = "w-40 h-40 rounded-full";
+  pie.innerHTML = "";
+  let acc = 0;
+  const stops = items.map((item, i) => {
+    const color = PIE_PALETTE[i % PIE_PALETTE.length];
+    const start = acc;
+    acc += item.percentage;
+    return `${color} ${start}% ${acc}%`;
+  }).join(", ");
+  pie.style.background = `conic-gradient(${stops})`;
+
+  legend.innerHTML = items.map((item, i) => `
+    <div class="flex items-center justify-between">
+      <span class="inline-flex items-center gap-xs min-w-0">
+        <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background:${PIE_PALETTE[i % PIE_PALETTE.length]}"></span>
+        <span class="font-label-sm text-label-sm text-on-surface truncate">${item.name}</span>
+      </span>
+      <span class="font-label-bold text-label-bold text-on-surface-variant shrink-0">${item.percentage}%</span>
+    </div>`).join("");
 }
 
 // ── custom exercises (4.4) — personal, tracking-only, never suggested ──
@@ -763,6 +822,7 @@ async function loadHome() {
   const d = await api("GET", "/v1/dashboard/summary");
   $("h-streak").textContent = d.streak.current + " Day Streak";
   renderTrend(prepareTrendData(d.week));
+  loadExerciseBreakdown($("h-trend-period").value);
 
   const items = d.suggestions.all_items || [];
   HOME_ITEMS = items;
