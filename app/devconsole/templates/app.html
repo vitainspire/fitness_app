@@ -145,10 +145,23 @@ tailwind.config = { theme: { extend: {
       </div>
     </section>
 
-    <!-- charts side by side, each with its own Sort By directly above it -->
-    <section class="grid grid-cols-2 gap-sm items-start">
+    <!-- streak badge sits above both columns so it never pushes one chart
+         card down relative to the other -->
+    <div class="flex justify-end">
+      <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
+        <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
+        <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
+      </div>
+    </div>
+
+    <!-- charts side by side, each with its own Sort By directly above it.
+         items-stretch (grid default) makes both columns equal height; flex
+         flex-col + flex-1 on the card makes each card fill that height, so
+         the two white boxes always line up and match, whichever content is
+         taller. -->
+    <section class="grid grid-cols-2 gap-sm">
       <!-- bar chart column -->
-      <div class="space-y-sm min-w-0">
+      <div class="flex flex-col gap-sm min-w-0">
         <div class="flex flex-wrap items-center gap-xs">
           <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
           <select id="h-trend-period" onchange="onTrendPeriodChange(this.value)"
@@ -158,12 +171,8 @@ tailwind.config = { theme: { extend: {
             <option value="30">30 Days</option>
           </select>
         </div>
-        <div class="bg-primary-container text-on-primary-container px-sm py-xs rounded-full flex items-center gap-xs w-fit">
-          <span class="material-symbols-outlined text-label-sm">local_fire_department</span>
-          <span id="h-streak" class="font-label-bold text-label-sm">0 Day Streak</span>
-        </div>
-        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm">
-          <div class="flex h-36">
+        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm flex-1 flex flex-col">
+          <div class="flex h-36 flex-1">
             <div id="h-yaxis" class="flex flex-col justify-between text-[10px] text-secondary/60 pb-6 pr-1 font-medium"></div>
             <div class="flex-1 relative flex flex-col min-w-0">
               <div class="absolute inset-0 flex flex-col justify-between pb-6 pointer-events-none z-0">
@@ -178,9 +187,9 @@ tailwind.config = { theme: { extend: {
         </div>
       </div>
 
-      <!-- donut chart column - same period as the bar chart used to share;
-           one slice per exercise NAME (duplicates collapsed), not per log -->
-      <div class="space-y-sm min-w-0">
+      <!-- donut chart column - one slice per exercise NAME (duplicates
+           collapsed), not per log -->
+      <div class="flex flex-col gap-sm min-w-0">
         <div class="flex flex-wrap items-center gap-xs">
           <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
           <select id="h-pie-period" onchange="onPiePeriodChange(this.value)"
@@ -190,7 +199,7 @@ tailwind.config = { theme: { extend: {
             <option value="30">30 Days</option>
           </select>
         </div>
-        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm flex flex-col items-center gap-xs">
+        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm flex-1 flex flex-col items-center justify-center gap-xs">
           <div class="relative w-28 h-28">
             <svg id="h-pie" viewBox="0 0 100 100" class="w-28 h-28"></svg>
             <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-xs">
