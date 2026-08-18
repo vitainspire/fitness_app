@@ -145,10 +145,11 @@ tailwind.config = { theme: { extend: {
       </div>
     </section>
 
-    <!-- chart -->
-    <section class="space-y-md">
-      <div class="flex justify-between items-center">
-        <div class="flex items-center gap-xs">
+    <!-- charts side by side, each with its own Sort By directly above it -->
+    <section class="grid grid-cols-2 gap-sm items-start">
+      <!-- bar chart column -->
+      <div class="space-y-sm min-w-0">
+        <div class="flex flex-wrap items-center gap-xs">
           <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
           <select id="h-trend-period" onchange="onTrendPeriodChange(this.value)"
             class="bg-transparent font-label-bold text-label-bold text-on-surface border-none focus:outline-none cursor-pointer">
@@ -157,33 +158,30 @@ tailwind.config = { theme: { extend: {
             <option value="30">30 Days</option>
           </select>
         </div>
-        <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
-          <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
-          <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
+        <div class="bg-primary-container text-on-primary-container px-sm py-xs rounded-full flex items-center gap-xs w-fit">
+          <span class="material-symbols-outlined text-label-sm">local_fire_department</span>
+          <span id="h-streak" class="font-label-bold text-label-sm">0 Day Streak</span>
         </div>
-      </div>
-      <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
-        <div class="flex h-48">
-          <div id="h-yaxis" class="flex flex-col justify-between text-xs text-secondary/60 pb-6 pr-4 font-medium"></div>
-          <div class="flex-1 relative flex flex-col">
-            <div class="absolute inset-0 flex flex-col justify-between pb-6 pointer-events-none z-0">
-              <div class="w-full h-px bg-surface-variant/50"></div>
-              <div class="w-full h-px bg-surface-variant/50"></div>
-              <div class="w-full h-px bg-surface-variant/50"></div>
+        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm">
+          <div class="flex h-36">
+            <div id="h-yaxis" class="flex flex-col justify-between text-[10px] text-secondary/60 pb-6 pr-1 font-medium"></div>
+            <div class="flex-1 relative flex flex-col min-w-0">
+              <div class="absolute inset-0 flex flex-col justify-between pb-6 pointer-events-none z-0">
+                <div class="w-full h-px bg-surface-variant/50"></div>
+                <div class="w-full h-px bg-surface-variant/50"></div>
+                <div class="w-full h-px bg-surface-variant/50"></div>
+              </div>
+              <div id="h-bars" class="flex-1 flex items-end justify-between z-10 pb-6 gap-1"></div>
+              <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-secondary/60 font-medium pt-2"></div>
             </div>
-            <div id="h-bars" class="flex-1 flex items-end justify-between z-10 pb-6 gap-4"></div>
-            <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-secondary/60 font-medium pt-2"></div>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- exercise breakdown pie chart - same period as the bar chart above,
-         one slice per exercise NAME (duplicates collapsed), not per log -->
-    <section class="space-y-md">
-      <div class="flex items-center justify-between">
-        <h3 class="font-headline-sm text-headline-sm text-on-surface">Exercise Breakdown</h3>
-        <div class="flex items-center gap-xs">
+      <!-- donut chart column - same period as the bar chart used to share;
+           one slice per exercise NAME (duplicates collapsed), not per log -->
+      <div class="space-y-sm min-w-0">
+        <div class="flex flex-wrap items-center gap-xs">
           <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
           <select id="h-pie-period" onchange="onPiePeriodChange(this.value)"
             class="bg-transparent font-label-bold text-label-bold text-on-surface border-none focus:outline-none cursor-pointer">
@@ -192,16 +190,16 @@ tailwind.config = { theme: { extend: {
             <option value="30">30 Days</option>
           </select>
         </div>
-      </div>
-      <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col items-center gap-md">
-        <div class="relative w-40 h-40">
-          <svg id="h-pie" viewBox="0 0 100 100" class="w-40 h-40"></svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-sm">
-            <span id="h-pie-center-name" class="font-label-bold text-label-bold text-on-surface truncate max-w-full"></span>
-            <span id="h-pie-center-pct" class="font-headline-sm text-headline-sm text-on-surface"></span>
+        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm flex flex-col items-center gap-xs">
+          <div class="relative w-28 h-28">
+            <svg id="h-pie" viewBox="0 0 100 100" class="w-28 h-28"></svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-xs">
+              <span id="h-pie-center-name" class="font-label-sm text-label-sm text-on-surface truncate max-w-full"></span>
+              <span id="h-pie-center-pct" class="font-label-bold text-label-bold text-on-surface"></span>
+            </div>
           </div>
+          <p class="font-label-sm text-label-sm text-on-surface-variant text-center">Tap/hover a slice</p>
         </div>
-        <p class="font-label-sm text-label-sm text-on-surface-variant text-center">Tap or hover a slice to see it</p>
       </div>
     </section>
 
