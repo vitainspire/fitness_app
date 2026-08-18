@@ -129,8 +129,9 @@ tailwind.config = { theme: { extend: {
         <div id="h-avatar" class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0 font-label-bold text-on-primary-container"></div>
         <h1 id="h-hello" class="font-headline-sm text-headline-sm font-bold text-on-surface"></h1>
       </div>
-      <button onclick="go('profile')" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface">
+      <button onclick="go('notifications')" class="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface">
         <span class="material-symbols-outlined">notifications</span>
+        <span id="h-notif-badge" class="hidden absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-error text-on-error text-[10px] font-bold flex items-center justify-center leading-none">0</span>
       </button>
     </div>
   </header>
@@ -251,6 +252,19 @@ tailwind.config = { theme: { extend: {
   <div class="max-w-md mx-auto px-container-margin pt-lg">
     <h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface mb-lg">Settings</h2>
     <div id="p-body" class="flex flex-col gap-card-gap"></div>
+  </div>
+</section>
+
+<!-- ════════ NOTIFICATIONS ════════ -->
+<section id="s-notifications" class="screen">
+  <div class="max-w-md mx-auto px-container-margin pt-lg">
+    <div class="flex items-center gap-sm mb-lg">
+      <button onclick="go('home')" aria-label="Back" class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface-variant">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <h2 class="font-display-lg-mobile text-display-lg-mobile text-on-surface">Notifications</h2>
+    </div>
+    <div id="n-body" class="flex flex-col gap-card-gap"></div>
   </div>
 </section>
 
@@ -472,6 +486,29 @@ function go(name) {
   if (name === "home") loadHome();
   if (name === "videos") loadVideos();
   if (name === "profile") loadProfile();
+  if (name === "notifications") loadNotifications();
+}
+
+// ── notifications ──
+// Placeholder client-side list: there is no real notification source yet
+// (Module 8 - push/reminders - hasn't been built). This wires up the page,
+// the badge, and the bell icon's link correctly now, ready to switch to a
+// real fetched list the moment that backend exists.
+let NOTIFICATIONS = [];
+
+function renderNotifBadge() {
+  const n = NOTIFICATIONS.length;
+  const badge = $("h-notif-badge");
+  badge.textContent = n > 9 ? "9+" : String(n);
+  badge.classList.toggle("hidden", n === 0);
+}
+
+function loadNotifications() {
+  $("n-body").innerHTML = NOTIFICATIONS.length ? NOTIFICATIONS.map(n => `
+    <div class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md">
+      <p class="font-body-md text-on-surface">${n.message}</p>
+    </div>`).join("")
+    : `<div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg font-body-md text-on-surface-variant text-center">No notifications yet.</div>`;
 }
 document.querySelectorAll(".nav-btn").forEach(b => b.onclick = () => go(b.dataset.t));
 
@@ -493,6 +530,7 @@ async function doAuth(mode) {
 
 async function route() {
   const p = await api("GET", "/v1/profile");
+  renderNotifBadge();
   if (!p.onboarded) { await loadOnboarding(); go("onboard"); return; }
   if (p.referred) { $("refer-msg").textContent = "We can't suggest exercises based on what you selected."; go("refer"); $("nav").className = NAV_ON; return; }
   go("home");
