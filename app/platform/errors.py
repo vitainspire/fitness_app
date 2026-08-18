@@ -6,7 +6,7 @@ REQUIREMENTS → API Contract → Conventions:
 """
 from __future__ import annotations
 
-from flask import Flask, jsonify
+from flask import Flask, g, jsonify, request
 
 
 class ApiError(Exception):
@@ -76,6 +76,20 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(Exception)
     def _handle_unexpected(exc: Exception):
         app.logger.exception("Unhandled exception", exc_info=exc)
+        # 10.1/10.2 — write it down somewhere durable, not just this log
+        # line. Failure to record must never hide the real error response
+        # from the client, so this is its own best-effort try/except.
+        try:
+            from app.platform.db import session_scope
+            from app.platform.models import record_issue
+            with session_scope() as session:
+                record_issue(
+                    session, issue_type="server_error", message=repr(exc),
+                    path=request.path, user_id=getattr(g, "user_id", None),
+                    request_id=getattr(g, "request_id", None),
+                )
+        except Exception:
+            app.logger.exception("Failed to record the above exception as an issue")
         # Never leak internals to a mobile client.
         return jsonify({
             "error": {"code": "internal_error", "message": "Something went wrong"}

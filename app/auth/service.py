@@ -149,11 +149,26 @@ def handle_theft(user_id: str, reason: str) -> None:
 
     tk.set_tokens_valid_after(user_id)                                   # 2 (Redis)
 
-    # 4 — must not happen silently. Wired to the alerting channel in Module 10.
+    # 4 — must not happen silently. Wired to the alerting channel (Module 10):
+    # a durable AppIssue row, not just a console log line that vanishes.
     import logging
     logging.getLogger("security").critical(
         "refresh_token_theft_detected user_id=%s reason=%s", user_id, reason
     )
+    try:
+        from flask import g
+        from app.platform.db import session_scope
+        from app.platform.models import record_issue
+        with session_scope() as issue_session:
+            record_issue(
+                issue_session, issue_type="session_theft",
+                message=f"Refresh token theft detected: {reason}",
+                user_id=user_id, request_id=getattr(g, "request_id", None),
+            )
+    except Exception:
+        logging.getLogger("security").exception(
+            "Failed to record theft detection as an issue (user_id=%s)", user_id
+        )
 
 
 # --- Logout ----------------------------------------------------------------

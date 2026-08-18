@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 
-from flask import Flask, jsonify
+from flask import Flask, g, jsonify, request
 
 from app.platform import redis_clients as rc
 from app.platform.config import load_config
@@ -32,6 +33,17 @@ def create_app() -> Flask:
     )
 
     register_error_handlers(app)
+
+    @app.before_request
+    def _assign_request_id():
+        """10.1 — one id per request, so an issue row and its logs can be
+        tied back to the same request even across processes."""
+        g.request_id = request.headers.get("X-Request-Id") or f"req-{uuid.uuid4().hex[:12]}"
+
+    @app.after_request
+    def _echo_request_id(response):
+        response.headers["X-Request-Id"] = getattr(g, "request_id", "")
+        return response
 
     from app.auth.routes import account_bp, bp as auth_bp
     from app.profile.routes import bp as core_bp
