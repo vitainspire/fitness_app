@@ -181,7 +181,18 @@ tailwind.config = { theme: { extend: {
     <!-- exercise breakdown pie chart - same period as the bar chart above,
          one slice per exercise NAME (duplicates collapsed), not per log -->
     <section class="space-y-md">
-      <h3 class="font-headline-sm text-headline-sm text-on-surface">Exercise Breakdown</h3>
+      <div class="flex items-center justify-between">
+        <h3 class="font-headline-sm text-headline-sm text-on-surface">Exercise Breakdown</h3>
+        <div class="flex items-center gap-xs">
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
+          <select id="h-pie-period" onchange="onPiePeriodChange(this.value)"
+            class="bg-transparent font-label-bold text-label-bold text-on-surface border-none focus:outline-none cursor-pointer">
+            <option value="7" selected>7 Days</option>
+            <option value="15">15 Days</option>
+            <option value="30">30 Days</option>
+          </select>
+        </div>
+      </div>
       <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg flex flex-col items-center gap-md">
         <div class="relative w-40 h-40">
           <svg id="h-pie" viewBox="0 0 100 100" class="w-40 h-40"></svg>
@@ -637,6 +648,9 @@ async function onTrendPeriodChange(value) {
     const d = await api("GET", `/v1/dashboard/trend?days=${value}`);
     renderTrend(prepareTrendData(d.trend));
   } catch (e) { toast(e.message, true); }
+}
+
+function onPiePeriodChange(value) {
   loadExerciseBreakdown(value);
 }
 
@@ -865,7 +879,7 @@ async function loadHome() {
   const d = await api("GET", "/v1/dashboard/summary");
   $("h-streak").textContent = d.streak.current + " Day Streak";
   renderTrend(prepareTrendData(d.week));
-  loadExerciseBreakdown($("h-trend-period").value);
+  loadExerciseBreakdown($("h-pie-period").value);
 
   const items = d.suggestions.all_items || [];
   HOME_ITEMS = items;
