@@ -192,6 +192,15 @@ tailwind.config = { theme: { extend: {
       <div id="h-cards" class="grid grid-cols-2 gap-sm items-stretch"></div>
     </section>
 
+    <!-- your own exercises: same card style as Recommended Today, but never
+         suggested/programmed (4.4) - a separate section, never mixed into it -->
+    <section id="h-custom-section" class="space-y-md hidden">
+      <div class="flex items-center justify-between">
+        <h3 class="font-headline-sm text-headline-sm text-on-surface">Your Own Exercises</h3>
+      </div>
+      <div id="h-custom-cards" class="grid grid-cols-2 gap-sm items-stretch"></div>
+    </section>
+
     <!-- recent logs -->
     <section class="space-y-sm">
       <div class="flex items-center justify-between">
@@ -712,6 +721,7 @@ async function renameCustomPrompt(id, currentName) {
     const d = await api("GET", "/v1/custom-exercises");
     customExercises = d.custom_exercises;
     renderCustomList();
+    loadHome(); // keep the Home-screen cards (renderCustomCard) in sync too
     toast("Renamed");
   } catch (e) { toast(e.message, true); }
 }
@@ -723,6 +733,7 @@ async function deleteCustomExercise(id) {
     const d = await api("GET", "/v1/custom-exercises");
     customExercises = d.custom_exercises;
     renderCustomList();
+    loadHome(); // keep the Home-screen cards (renderCustomCard) in sync too
     toast("Deleted");
   } catch (e) { toast(e.message, true); }
 }
@@ -828,6 +839,68 @@ async function loadHome() {
       <span class="font-body-md text-body-md font-bold shrink-0 ${r.implausible?'text-error':'text-on-surface'}">${r.prescription}${r.implausible?' ⚠':''}</span>
     </div>`).join("")
     : `<div class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md font-body-md text-on-surface-variant">Nothing logged yet.</div>`;
+
+  // your own exercises — same card layout as renderCard above, but its own
+  // section: creating/logging here only ever calls custom-exercise
+  // endpoints, never /v1/program/entries (4.4, 13.1 - tracking-only).
+  const { custom_exercises } = await api("GET", "/v1/custom-exercises");
+  $("h-custom-section").classList.toggle("hidden", !custom_exercises.length);
+  $("h-custom-cards").innerHTML = custom_exercises.map(renderCustomCard).join("");
+}
+
+function renderCustomCard(c) {
+  const single = c.measurement_type === "distance" || c.measurement_type === "duration";
+  const amountLabel = c.measurement_type === "reps" ? "Reps"
+                    : c.measurement_type === "distance" ? `Distance (${c.unit})` : "Minutes";
+  return `
+  <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-md space-y-md flex flex-col">
+    <div class="space-y-xs">
+      <div class="flex items-center justify-between h-4 mb-1">
+        <label class="text-label-sm text-secondary">Activity Type</label>
+        <button onclick="deleteCustomExercise('${c.id}')" aria-label="Remove"
+          class="text-secondary hover:text-error">
+          <span class="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      </div>
+      <div class="bg-surface-container-low rounded-DEFAULT flex items-center justify-center gap-xs h-10 px-md">
+        <span class="material-symbols-outlined text-secondary text-[18px]">fitness_center</span>
+        <span class="font-body-md text-on-surface text-sm truncate">${c.name}</span>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-sm items-stretch">
+      <div class="space-y-xs flex flex-col min-w-0">
+        <label class="text-label-sm text-secondary truncate block h-4 mb-1">Sets</label>
+        ${single
+          ? `<div class="bg-surface-container-low rounded-DEFAULT h-10 flex items-center justify-center"><span class="font-body-md text-on-surface-variant text-xs">—</span></div>`
+          : `<input id="cc-sets-${c.id}" type="number" min="1" value="1"
+               class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">`}
+      </div>
+      <div class="space-y-xs flex flex-col min-w-0">
+        <label class="text-label-sm text-secondary truncate block h-4 mb-1">${amountLabel}</label>
+        <input id="cc-amount-${c.id}" type="number" step="any"
+          class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">
+      </div>
+    </div>
+    <div class="flex-1"></div>
+    <button onclick="logCustomCard('${c.id}', ${single})"
+      class="w-full bg-primary text-on-primary py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
+      Save Activity
+    </button>
+  </div>`;
+}
+
+async function logCustomCard(id, single) {
+  const amount = parseFloat($("cc-amount-" + id).value);
+  const sets = single ? 1 : (parseInt($("cc-sets-" + id).value, 10) || 1);
+  if (!amount || amount <= 0) { toast("Enter an amount", true); return; }
+  try {
+    const d = await api("POST", "/v1/activities", {custom_exercise_id: id, amount, sets});
+    const l = d.logged[0];
+    toast(l.implausible
+      ? "Saved — that looks unusual, so it won't count towards progress"
+      : `Saved ${l.prescription} · ${d.streak.current} day streak`, l.implausible);
+    loadHome();
+  } catch (e) { toast(e.message, true); }
 }
 
 async function logCard(type, single) {
