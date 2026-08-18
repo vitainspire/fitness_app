@@ -175,10 +175,8 @@ tailwind.config = { theme: { extend: {
             <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-secondary/60 font-medium pt-2"></div>
           </div>
         </div>
-        <div id="h-trend-legend" class="flex flex-wrap gap-md mt-md pt-md border-t border-outline-variant/30"></div>
       </div>
     </section>
-    <div id="h-trend-tooltip" class="hidden fixed z-50 bg-on-surface text-surface font-label-sm text-label-sm px-sm py-xs rounded-DEFAULT pointer-events-none whitespace-nowrap" style="transform: translate(-50%, -100%);"></div>
 
     <!-- recommended today: 2-col card grid -->
     <section class="space-y-md">
@@ -585,91 +583,13 @@ async function submitOnboarding() {
 }
 
 // ── trend chart (4.3 — 7d/15d/30d) ──
-// Each bar is one day (or one week, once bucketed) stacked into a segment
-// per exercise, instead of a single flat color - the bar shows exactly what
-// made it up, one color per exercise actually logged, no merging/capping.
-// Colors are assigned once across the whole visible range so the same
-// exercise is always the same color on every bar, not reassigned per day.
-const TREND_PALETTE = [
-  "#419E4B", "#2F6FED", "#E0A62C", "#C24E4E", "#8A5CD6",
-  "#1AA6A0", "#D6708A", "#6B8E23", "#B5651D", "#4682B4",
-];
-
-function buildTrendColors(bars) {
-  const totals = {};
-  bars.forEach(b => (b.breakdown || []).forEach(x => {
-    totals[x.name] = (totals[x.name] || 0) + x.count;
-  }));
-  const ranked = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
-  const colorMap = {};
-  ranked.forEach((name, i) => { colorMap[name] = TREND_PALETTE[i % TREND_PALETTE.length]; });
-  return colorMap;
-}
-
 function renderTrend(days) {
   const max = Math.max(1, ...days.map(w => w.count));
   const top = Math.max(2, Math.ceil(max / 2) * 2);
   $("h-yaxis").innerHTML = [top, Math.round(top/2), 0].map(v => `<span>${v}</span>`).join("");
-
-  const colorMap = buildTrendColors(days);
-
-  $("h-bars").innerHTML = days.map(w => {
-    if (!w.count) {
-      return `<div class="w-full bg-[#419E4B] rounded-t-lg" style="height:2%;opacity:.25"></div>`;
-    }
-    const barPct = Math.max(6, (w.count / top) * 100);
-    const segs = (w.breakdown || []).map(s => {
-      const color = colorMap[s.name];
-      const label = s.name.replace(/'/g, "\\'");
-      const text = `${label}: ${s.count}`;
-      return `<div style="height:${(s.count / w.count) * 100}%;background:${color}"
-        onmouseenter="showTrendTooltip(event, '${text}')"
-        onmousemove="positionTrendTooltip(event)"
-        onmouseleave="hideTrendTooltip()"
-        onclick="tapTrendSegment(event, '${text}')"></div>`;
-    }).join("");
-    return `<div class="w-full flex flex-col-reverse rounded-t-lg overflow-hidden" style="height:${barPct}%">${segs}</div>`;
-  }).join("");
-
+  $("h-bars").innerHTML = days.map(w =>
+    `<div class="w-full bg-[#419E4B] rounded-t-lg" style="height:${w.count?Math.max(6,(w.count/top)*100):2}%;opacity:${w.count?1:.25}"></div>`).join("");
   $("h-days").innerHTML = days.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
-
-  // legend - names you can identify at a glance, without needing to
-  // hover/tap at all.
-  const names = Object.keys(colorMap);
-  $("h-trend-legend").innerHTML = names.map(name => `
-    <span class="inline-flex items-center gap-xs">
-      <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${colorMap[name]}"></span>
-      <span class="font-label-sm text-label-sm text-on-surface-variant">${name}</span>
-    </span>`).join("");
-}
-
-// Hover (desktop) and tap (mobile) both land on the same tooltip element,
-// positioned right over the segment itself - not a generic toast elsewhere
-// on screen.
-let trendTooltipTimer = null;
-
-function positionTrendTooltip(evt) {
-  const el = $("h-trend-tooltip");
-  const rect = evt.currentTarget.getBoundingClientRect();
-  el.style.left = (rect.left + rect.width / 2) + "px";
-  el.style.top = (rect.top - 8) + "px";
-}
-
-function showTrendTooltip(evt, text) {
-  clearTimeout(trendTooltipTimer);
-  const el = $("h-trend-tooltip");
-  el.textContent = text;
-  el.classList.remove("hidden");
-  positionTrendTooltip(evt);
-}
-
-function hideTrendTooltip() {
-  $("h-trend-tooltip").classList.add("hidden");
-}
-
-function tapTrendSegment(evt, text) {
-  showTrendTooltip(evt, text);
-  trendTooltipTimer = setTimeout(hideTrendTooltip, 2000);
 }
 
 // Beyond 15 days, one bar per day gets too cramped for the box (fixed gaps
@@ -683,15 +603,10 @@ function toWeeklyBuckets(daily) {
   for (let i = 0; i < daily.length; i += 7) {
     const chunk = daily.slice(i, i + 7);
     const total = chunk.reduce((sum, d) => sum + d.count, 0);
-    const merged = {};
-    chunk.forEach(d => (d.breakdown || []).forEach(b => {
-      merged[b.name] = (merged[b.name] || 0) + b.count;
-    }));
     weeks.push({
       date: chunk[0].date,
       label: new Date(chunk[0].date).toLocaleDateString([], {month: "short", day: "numeric"}),
       count: total,
-      breakdown: Object.keys(merged).map(name => ({ name, count: merged[name] })),
     });
   }
   return weeks;
