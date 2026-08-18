@@ -152,15 +152,25 @@ tailwind.config = { theme: { extend: {
           <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
           <select id="h-trend-period" onchange="onTrendPeriodChange(this.value)"
             class="bg-transparent font-label-bold text-label-bold text-on-surface border-none focus:outline-none cursor-pointer">
-            <option value="7">Weekly</option>
-            <option value="15">Bi-Weekly</option>
-            <option value="30">Monthly</option>
+            <option value="7">7 Days</option>
+            <option value="15">15 Days</option>
+            <option value="30">30 Days</option>
           </select>
+          <button onclick="toggleCustomDays()" aria-label="More options"
+            class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface-variant">
+            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
+          </button>
         </div>
         <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
           <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
           <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
         </div>
+      </div>
+      <div id="h-custom-days-wrap" class="hidden flex items-center gap-sm">
+        <input id="h-custom-days-input" type="number" min="1" max="365" placeholder="e.g. 60"
+          class="w-24 bg-surface-container-low border-none rounded-lg px-sm py-xs font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
+        <span class="font-label-sm text-label-sm text-on-surface-variant">days</span>
+        <button onclick="applyCustomDays()" class="bg-primary text-on-primary px-md py-xs rounded-full font-label-bold text-label-bold hover:opacity-90">Go</button>
       </div>
       <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
         <div class="flex h-48">
@@ -593,6 +603,20 @@ function renderTrend(days) {
 }
 
 async function onTrendPeriodChange(days) {
+  $("h-custom-days-wrap").classList.add("hidden");
+  try {
+    const d = await api("GET", `/v1/dashboard/trend?days=${days}`);
+    renderTrend(d.trend);
+  } catch (e) { toast(e.message, true); }
+}
+
+function toggleCustomDays() {
+  $("h-custom-days-wrap").classList.toggle("hidden");
+}
+
+async function applyCustomDays() {
+  const days = parseInt($("h-custom-days-input").value, 10);
+  if (!days || days < 1) { toast("Enter a valid number of days", true); return; }
   try {
     const d = await api("GET", `/v1/dashboard/trend?days=${days}`);
     renderTrend(d.trend);
