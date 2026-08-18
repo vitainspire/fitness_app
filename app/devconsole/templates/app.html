@@ -643,8 +643,16 @@ async function onTrendPeriodChange(value) {
 // ── exercise breakdown pie chart — one slice per exercise NAME, duplicates
 // collapsed server-side (10 walks is one slice, not ten) ──
 const PIE_PALETTE = [
-  "#419E4B", "#2F6FED", "#E0A62C", "#C24E4E", "#8A5CD6",
-  "#1AA6A0", "#D6708A", "#6B8E23", "#B5651D", "#4682B4",
+  "#2ECC71", // green
+  "#D35400", // dark orange
+  "#9B59B6", // violet
+  "#2980B9", // dark blue
+  "#E74C3C", // red
+  "#1ABC9C", // turquoise
+  "#F39C12", // orange
+  "#34495E", // navy
+  "#E91E63", // pink
+  "#16A085", // teal green
 ];
 
 async function loadExerciseBreakdown(days) {
