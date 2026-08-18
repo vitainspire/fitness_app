@@ -155,11 +155,8 @@ tailwind.config = { theme: { extend: {
             <option value="7">7 Days</option>
             <option value="15">15 Days</option>
             <option value="30">30 Days</option>
+            <option value="more">More</option>
           </select>
-          <button onclick="toggleCustomDays()" aria-label="More options"
-            class="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface-variant">
-            <span class="material-symbols-outlined text-[18px]">more_horiz</span>
-          </button>
         </div>
         <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
           <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
@@ -602,16 +599,17 @@ function renderTrend(days) {
   $("h-days").innerHTML = days.map(w => `<div class="w-full text-center">${w.label}</div>`).join("");
 }
 
-async function onTrendPeriodChange(days) {
+async function onTrendPeriodChange(value) {
+  if (value === "more") {
+    $("h-custom-days-wrap").classList.remove("hidden");
+    $("h-custom-days-input").focus();
+    return;
+  }
   $("h-custom-days-wrap").classList.add("hidden");
   try {
-    const d = await api("GET", `/v1/dashboard/trend?days=${days}`);
+    const d = await api("GET", `/v1/dashboard/trend?days=${value}`);
     renderTrend(d.trend);
   } catch (e) { toast(e.message, true); }
-}
-
-function toggleCustomDays() {
-  $("h-custom-days-wrap").classList.toggle("hidden");
 }
 
 async function applyCustomDays() {
