@@ -27,9 +27,9 @@ function Get-PortOwners([int]$p) {
 function Stop-Port([int]$p) {
     $owners = Get-PortOwners $p
     if (-not $owners) { Write-Host "Nothing listening on $p"; return }
-    foreach ($pid in $owners) {
-        taskkill /F /PID $pid 2>&1 | Out-Null
-        Write-Host "Stopped PID $pid on port $p"
+    foreach ($procId in $owners) {
+        taskkill /F /PID $procId 2>&1 | Out-Null
+        Write-Host "Stopped PID $procId on port $p"
     }
 }
 
