@@ -355,6 +355,10 @@ def add_program_entry(session: Session, user_id: str, activity_type: str,
         existing.status = "active"
         existing.suspended_reason = None
         existing.source = source
+        # A re-add is a fresh start for "logged today" purposes (matches how
+        # deleting+recreating a custom exercise gets a fresh id): any log from
+        # before this moment must not count toward today's completion below.
+        existing.added_at = datetime.now(timezone.utc)
     else:
         session.add(UserProgram(
             user_id=user_id, activity_type=activity_type,
@@ -762,10 +766,19 @@ def suggestions_today(session: Session, user_id: str, limit: int = 3) -> dict:
         return {"referred": True, "message": REFERRAL_MESSAGE, "items": []}
 
     program, visible, band, default_codes, optional_codes = _dashboard_slice(session, user_id)
-    done = set(session.scalars(
-        select(ActivityLog.activity_type).where(
+    # Latest log per activity today, not just "did it happen": a log from
+    # before this program entry's most recent add/re-add (see add_program_entry)
+    # must not count as completing today's fresh instance of it.
+    last_logged = dict(session.execute(
+        select(ActivityLog.activity_type, func.max(ActivityLog.logged_at)).where(
             ActivityLog.user_id == user_id,
-            ActivityLog.local_date == today_ist())
+            ActivityLog.local_date == today_ist(),
+            ActivityLog.activity_type.is_not(None))
+        .group_by(ActivityLog.activity_type)
+    ).all())
+    added_at_by_type = dict(session.execute(
+        select(UserProgram.activity_type, UserProgram.added_at).where(
+            UserProgram.user_id == user_id, UserProgram.status == "active")
     ).all())
 
     videos = {v.activity_type: v for v in session.scalars(select(VideoCatalog)).all()}
@@ -782,7 +795,11 @@ def suggestions_today(session: Session, user_id: str, limit: int = 3) -> dict:
         if p["activity_type"] not in visible:
             continue
         v = videos.get(p["activity_type"])
-        items.append({**p, "completed": p["activity_type"] in done,
+        logged_at = last_logged.get(p["activity_type"])
+        added_at = added_at_by_type.get(p["activity_type"])
+        completed = (logged_at is not None and added_at is not None
+                     and logged_at >= added_at)
+        items.append({**p, "completed": completed,
                       "video_url": v.watch_url if v else None,
                       "tier": tier_of(p["activity_type"])})
 
