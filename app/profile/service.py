@@ -289,7 +289,7 @@ def list_catalogue(session: Session, user_id: str) -> list[dict]:
     """
     if is_referred(session, user_id):
         raise Forbidden("Speak to a doctor before adding exercises to your program.")
-    _program, visible, _band = _dashboard_slice(session, user_id)
+    _program, visible, _band, _default, _optional = _dashboard_slice(session, user_id)
     out = []
     for t in session.scalars(
             select(ActivityTaxonomy).order_by(ActivityTaxonomy.priority_order)).all():
@@ -366,9 +366,17 @@ def add_program_entry(session: Session, user_id: str, activity_type: str,
 
 
 def remove_program_entry(session: Session, user_id: str, activity_type: str) -> dict:
-    """14.7 — always permitted, for any entry, even for a referred user."""
-    session.execute(delete(UserProgram).where(
-        UserProgram.user_id == user_id, UserProgram.activity_type == activity_type))
+    """14.7 — always permitted, for any entry, even for a referred user.
+
+    Marks the entry removed rather than deleting it, and _dashboard_slice
+    trims the tier's visible count to match - a manual removal must stay
+    removed, never silently backfilled by the next-priority template
+    activity. Bringing it back is only ever a deliberate catalogue add.
+    """
+    row = session.get(UserProgram, (user_id, activity_type))
+    if row is not None:
+        row.status = "suspended"
+        row.suspended_reason = "user_removed"
     session.flush()
     return {"removed": True, "program": get_program(session, user_id)}
 
@@ -696,7 +704,8 @@ def weekly_volume(session: Session, user_id: str) -> list[dict]:
 
 # --- Suggestions + videos --------------------------------------------------
 
-def _dashboard_slice(session: Session, user_id: str) -> tuple[list[dict], set[str], str]:
+def _dashboard_slice(session: Session, user_id: str
+                     ) -> tuple[list[dict], set[str], str, set[str], set[str]]:
     """The activities the dashboard actually shows, and the tier band used to
     decide it. Shared by suggestions_today (renders them) and list_catalogue
     (offers everything ELSE) so the two can never quietly disagree about what
@@ -712,17 +721,40 @@ def _dashboard_slice(session: Session, user_id: str) -> tuple[list[dict], set[st
     prof = session.get(UserProfile, user_id)
     band = prof.experience_band if prof else "beginner"
     default_codes, optional_codes = _tier_slice(program, band)
+
+    # A manual removal (remove_program_entry) marks the row suspended rather
+    # than deleting it, specifically so it can be counted here: _tier_slice
+    # always re-slices to the tier's usual count from whatever is currently
+    # active, which would otherwise silently promote the next-priority
+    # template activity into the vacancy. Trim the same number back off the
+    # low-priority end so a removal never gets auto-replaced - only a
+    # deliberate catalogue add brings the count back up.
+    removed_count = session.scalar(
+        select(func.count()).select_from(UserProgram)
+        .where(UserProgram.user_id == user_id, UserProgram.status == "suspended",
+               UserProgram.suspended_reason == "user_removed",
+               UserProgram.source == "template")
+    )
+    if removed_count:
+        ordered = sorted(
+            (p for p in program if p["source"] == "template"
+             and p["activity_type"] in (default_codes | optional_codes)),
+            key=lambda p: p["priority_order"],
+        )
+        drop = {p["activity_type"] for p in ordered[max(0, len(ordered) - removed_count):]}
+        default_codes -= drop
+        optional_codes -= drop
+
     self_added = {p["activity_type"] for p in program
                   if p["source"] in ("manual", "user_override")}
-    return program, default_codes | optional_codes | self_added, band
+    return program, default_codes | optional_codes | self_added, band, default_codes, optional_codes
 
 
 def suggestions_today(session: Session, user_id: str, limit: int = 3) -> dict:
     if is_referred(session, user_id):
         return {"referred": True, "message": REFERRAL_MESSAGE, "items": []}
 
-    program, visible, band = _dashboard_slice(session, user_id)
-    default_codes, optional_codes = _tier_slice(program, band)
+    program, visible, band, default_codes, optional_codes = _dashboard_slice(session, user_id)
     done = set(session.scalars(
         select(ActivityLog.activity_type).where(
             ActivityLog.user_id == user_id,
