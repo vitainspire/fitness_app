@@ -16,6 +16,19 @@ from flask import Blueprint, abort, render_template, send_from_directory
 bp = Blueprint("devconsole", __name__,
                template_folder="templates", static_folder="static")
 
+
+@bp.after_request
+def _no_cache(response):
+    """This is a single-file dev SPA edited constantly during this project -
+    a stale browser cache silently serving yesterday's JS (while the server
+    is already running today's) has repeatedly looked like a real app bug.
+    Never worth caching in dev; forces every load to be the current file.
+    """
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
 MOCKUPS = Path(__file__).parent / "static" / "mockups"
 
 PAGES = {
