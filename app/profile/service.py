@@ -717,33 +717,33 @@ def _dashboard_slice(session: Session, user_id: str
     silently swallowed by a beginner-tier cap the user has already stepped
     past for that one activity.
     """
-    program = [p for p in get_program(session, user_id) if p["status"] == "active"]
+    full_program = get_program(session, user_id)
+    program = [p for p in full_program if p["status"] == "active"]
     prof = session.get(UserProfile, user_id)
     band = prof.experience_band if prof else "beginner"
-    default_codes, optional_codes = _tier_slice(program, band)
 
     # A manual removal (remove_program_entry) marks the row suspended rather
-    # than deleting it, specifically so it can be counted here: _tier_slice
-    # always re-slices to the tier's usual count from whatever is currently
-    # active, which would otherwise silently promote the next-priority
-    # template activity into the vacancy. Trim the same number back off the
-    # low-priority end so a removal never gets auto-replaced - only a
-    # deliberate catalogue add brings the count back up.
-    removed_count = session.scalar(
-        select(func.count()).select_from(UserProgram)
-        .where(UserProgram.user_id == user_id, UserProgram.status == "suspended",
-               UserProgram.suspended_reason == "user_removed",
-               UserProgram.source == "template")
-    )
-    if removed_count:
-        ordered = sorted(
-            (p for p in program if p["source"] == "template"
-             and p["activity_type"] in (default_codes | optional_codes)),
-            key=lambda p: p["priority_order"],
-        )
-        drop = {p["activity_type"] for p in ordered[max(0, len(ordered) - removed_count):]}
-        default_codes -= drop
-        optional_codes -= drop
+    # than deleting it, specifically so it can be excluded here WITHOUT ever
+    # being backfilled. _tier_slice is run as if the removal never happened
+    # (the removed row is temporarily added back into consideration just for
+    # this calculation), then subtracted straight out of the result - this
+    # is what actually cancels the backfill, whatever the tier's cap is.
+    #
+    # A plain "trim N off the tail" correction (tried first, wrong) over-
+    # corrects the moment nothing was being backfilled in the first place -
+    # e.g. the "experienced" band has no cap at all, or the activity pool
+    # has simply run out - and ends up dropping one extra, unrelated
+    # activity on top of the one actually removed.
+    user_removed = set(session.scalars(
+        select(UserProgram.activity_type).where(
+            UserProgram.user_id == user_id, UserProgram.status == "suspended",
+            UserProgram.suspended_reason == "user_removed")
+    ).all())
+    program_for_tier = [p for p in full_program
+                        if p["status"] == "active" or p["activity_type"] in user_removed]
+    default_codes, optional_codes = _tier_slice(program_for_tier, band)
+    default_codes -= user_removed
+    optional_codes -= user_removed
 
     self_added = {p["activity_type"] for p in program
                   if p["source"] in ("manual", "user_override")}
