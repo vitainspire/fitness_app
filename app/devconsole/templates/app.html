@@ -1053,7 +1053,15 @@ function renderProfileEditor() {
 async function saveProfileEditor() {
   try {
     const newAge = parseInt($("pm-age").value, 10);
+    if (Number.isNaN(newAge)) { toast("Enter your age", true); return; }
     const originalCodes = new Set(editProfile.conditions.map(x => x.code));
+    // editPicked is normalized to {"none"} when empty (see openProfileEditor) —
+    // originalCodes must be too, or a zero-condition user always looks like
+    // they "changed" conditions (1 item vs. 0) just by editing age/goal, which
+    // wrongly routes every trivial edit through the full onboarding rebuild
+    // instead of the lightweight PUT, and can resurrect a manually-removed
+    // program entry in the process.
+    if (!originalCodes.size) originalCodes.add("none");
     const conditionsChanged = editPicked.size !== originalCodes.size
       || [...editPicked].some(c => !originalCodes.has(c));
 
