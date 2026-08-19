@@ -31,6 +31,12 @@ def init_engine(database_url: str, echo: bool = False) -> None:
         # process is how max_connections gets exhausted at low traffic.
         pool_size=5,
         max_overflow=5,
+        # Supabase's pooler runs in transaction mode (STRATEGY §5/9.2), which
+        # does not hold server-side prepared statements across pooled
+        # connections. psycopg's default prepare-after-N-uses behaviour then
+        # collides with a statement name a previous connection already
+        # prepared. Disabling it is required for transaction-mode poolers.
+        connect_args={"prepare_threshold": None} if "psycopg" in database_url else {},
     )
     _SessionFactory = sessionmaker(bind=_engine, expire_on_commit=False)
 
