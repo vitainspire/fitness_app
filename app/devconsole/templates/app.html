@@ -432,6 +432,15 @@ let HOME_ITEMS = [];
 let HOME_CUSTOM_ITEMS = [];
 const $ = id => document.getElementById(id);
 
+// User-supplied text (e.g. a custom exercise name) must never go into
+// innerHTML or an inline event-handler attribute unescaped — that's a stored
+// XSS hole, since anyone viewing the exercise later would execute it.
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 const ICONS = {
   walk:"directions_walk", running:"directions_run", neck_isometric:"self_improvement",
   shoulder_circles:"sports_gymnastics", lower_back_side_stretch:"accessibility_new",
@@ -633,8 +642,8 @@ function renderCustomList() {
   const box = $("custom-list");
   box.innerHTML = customExercises.length ? customExercises.map(c => `
     <div class="flex items-center justify-between bg-surface-container rounded-DEFAULT px-md py-sm">
-      <span class="font-label-bold text-label-bold text-on-surface flex-1">${c.name}</span>
-      <button onclick="renameCustomPrompt('${c.id}', '${c.name.replace(/'/g, "\\'")}')" aria-label="Rename" class="text-on-surface-variant px-xs"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+      <span class="font-label-bold text-label-bold text-on-surface flex-1">${escapeHtml(c.name)}</span>
+      <button onclick="renameCustomPrompt('${c.id}')" aria-label="Rename" class="text-on-surface-variant px-xs"><span class="material-symbols-outlined text-[18px]">edit</span></button>
       <button onclick="deleteCustomExercise('${c.id}')" aria-label="Delete" class="text-on-surface-variant px-xs"><span class="material-symbols-outlined text-[18px]">delete</span></button>
     </div>`).join("")
     : `<p class="font-body-md text-on-surface-variant">None yet.</p>`;
@@ -689,7 +698,12 @@ async function submitCustomCreate() {
   }
 }
 
-async function renameCustomPrompt(id, currentName) {
+async function renameCustomPrompt(id) {
+  // Looked up from the in-memory list rather than passed through the
+  // onclick attribute's string — a freeform name embedded there is a stored
+  // XSS risk even HTML-escaped, since the browser decodes entities before
+  // treating the attribute as JS.
+  const currentName = (customExercises.find(c => c.id === id) || {}).name || "";
   const name = window.prompt("Rename to:", currentName);
   if (!name || !name.trim() || name.trim() === currentName) return;
   try {
@@ -848,7 +862,7 @@ function renderCustomCard(c) {
       </div>
       <div class="bg-surface-container-low rounded-DEFAULT flex items-center justify-center gap-xs h-10 px-md">
         <span class="material-symbols-outlined text-secondary text-[18px]">fitness_center</span>
-        <span class="font-body-md text-on-surface text-sm truncate">${c.name}</span>
+        <span class="font-body-md text-on-surface text-sm truncate">${escapeHtml(c.name)}</span>
       </div>
     </div>
     ${blocks}
@@ -917,9 +931,19 @@ async function openCatalogue() {
   try {
     ({ catalogue } = await api("GET", "/v1/program/catalogue"));
   } catch (e) {
-    referredBlocked = true;
+    if (e.status === 403) {
+      referredBlocked = true;
+    } else {
+      toast(e.message || "Couldn't load the exercise catalogue. Please try again.", true);
+      return;
+    }
   }
-  await loadCustomExerciseSection();
+  try {
+    await loadCustomExerciseSection();
+  } catch (e) {
+    toast(e.message || "Couldn't load your custom exercises. Please try again.", true);
+    return;
+  }
   $("catalogue-list").innerHTML = referredBlocked
     ? `<p class="font-body-md text-on-surface-variant text-center py-lg">Speak to a doctor before adding built-in exercises to your program. You can still add your own below.</p>`
     : catalogue.length ? catalogue.map(c => `

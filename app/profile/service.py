@@ -200,17 +200,26 @@ def build_program(session: Session, user_id: str) -> list[dict]:
     return get_program(session, user_id)
 
 
-def get_program(session: Session, user_id: str) -> list[dict]:
+def get_program(session: Session, user_id: str, *, include_suspended: bool = False) -> list[dict]:
     if is_referred(session, user_id):
         return []
     modified = _modified_activities(session, user_id)
-    rows = session.execute(
+    query = (
         select(UserProgram, ActivityTaxonomy)
         .join(ActivityTaxonomy,
               ActivityTaxonomy.activity_type == UserProgram.activity_type)
         .where(UserProgram.user_id == user_id)
-        .order_by(ActivityTaxonomy.display_name)
-    ).all()
+    )
+    if not include_suspended:
+        # A manually-removed entry (remove_program_entry) is soft-deleted via
+        # status="suspended" rather than an actual row delete, so it must be
+        # filtered out here — otherwise every caller that returns this straight
+        # to the client (GET /v1/program, and the response after add/remove)
+        # would show a "removed" exercise forever. _dashboard_slice is the one
+        # deliberate exception: it needs the suspended rows too, to cancel out
+        # the tier backfill for a removed entry (see its own comment).
+        query = query.where(UserProgram.status == "active")
+    rows = session.execute(query.order_by(ActivityTaxonomy.display_name)).all()
     out = []
     for p, t in rows:
         amount = float(p.target_amount)
@@ -598,6 +607,17 @@ def rename_custom_exercise(session: Session, user_id: str, exercise_id: str,
     if len(new_name) > 64:
         raise ValidationError("Name must be 64 characters or fewer.")
     normalized = _normalise_exercise_name(new_name)
+
+    # Same taxonomy check create_custom_exercise applies (4.4) — otherwise a
+    # rename can shadow a real built-in activity that the create path would
+    # have refused outright.
+    for t in session.scalars(select(ActivityTaxonomy)).all():
+        synonyms = {s.lower() for s in (t.synonyms or [])}
+        if normalized == t.display_name.lower() or normalized in synonyms:
+            raise ValidationError(
+                f'"{new_name}" matches the built-in activity "{t.display_name}" — log that instead.'
+            )
+
     clash = session.scalar(
         select(CustomExercise).where(
             CustomExercise.user_id == user_id,
@@ -746,7 +766,7 @@ def _dashboard_slice(session: Session, user_id: str
     silently swallowed by a beginner-tier cap the user has already stepped
     past for that one activity.
     """
-    full_program = get_program(session, user_id)
+    full_program = get_program(session, user_id, include_suspended=True)
     program = [p for p in full_program if p["status"] == "active"]
     prof = session.get(UserProfile, user_id)
     band = prof.experience_band if prof else "beginner"
