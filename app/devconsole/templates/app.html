@@ -739,16 +739,17 @@ async function loadHome() {
   $("h-avatar").textContent = (EMAIL[0] || "?").toUpperCase();
   $("h-hello").textContent = "Welcome back, " + EMAIL.split("@")[0] + "!";
 
-  const d = await api("GET", "/v1/dashboard/summary");
+  // Fired together, not one-after-the-other: when a longer period is
+  // selected, /v1/dashboard/summary's own 7-day `week` field goes unused —
+  // no reason to also pay for it sequentially before starting the trend
+  // fetch that actually gets rendered.
+  const trendNeeded = currentTrendDays !== 7;
+  const [d, trendData] = await Promise.all([
+    api("GET", "/v1/dashboard/summary"),
+    trendNeeded ? api("GET", `/v1/dashboard/trend?days=${currentTrendDays}`) : Promise.resolve(null),
+  ]);
   $("h-streak").textContent = d.streak.current + " Day Streak";
-  if (currentTrendDays === 7) {
-    renderTrend(prepareTrendData(d.week));
-  } else {
-    // The user has a longer period selected — re-fetch that instead of
-    // silently reverting the chart to 7 days while the dropdown still shows
-    // their actual choice.
-    onTrendPeriodChange(currentTrendDays);
-  }
+  renderTrend(prepareTrendData(trendNeeded ? trendData.trend : d.week));
 
   const items = d.suggestions.all_items || [];
   HOME_ITEMS = items;

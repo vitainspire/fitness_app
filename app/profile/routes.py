@@ -189,7 +189,6 @@ def dashboard():
         return jsonify({
             "streak": service.streak(s, g.user_id),
             "week": service.weekly_volume(s, g.user_id),
-            "recent": service.recent_logs(s, g.user_id),
             "suggestions": service.suggestions_today(s, g.user_id),
         })
 

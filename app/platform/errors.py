@@ -7,6 +7,7 @@ REQUIREMENTS → API Contract → Conventions:
 from __future__ import annotations
 
 from flask import Flask, g, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 
 class ApiError(Exception):
@@ -72,6 +73,19 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(404)
     def _handle_404(_):
         return jsonify({"error": {"code": "not_found", "message": "No such endpoint"}}), 404
+
+    @app.errorhandler(HTTPException)
+    def _handle_http_exception(exc: HTTPException):
+        # A routing/protocol-level error (wrong HTTP method, malformed body,
+        # oversized payload, ...) is normal client behaviour, not a server
+        # bug — @app.errorhandler(Exception) below would otherwise catch
+        # these too (HTTPException is itself an Exception subclass), return
+        # the wrong status code, and durably log them as "server_error"
+        # issues, which is exactly what AppIssue's own docstring says must
+        # never happen for expected/non-bug errors. Flask resolves the more
+        # specific @app.errorhandler(404) above ahead of this for plain 404s.
+        code = exc.name.lower().replace(" ", "_")
+        return jsonify({"error": {"code": code, "message": exc.description}}), exc.code
 
     @app.errorhandler(Exception)
     def _handle_unexpected(exc: Exception):

@@ -46,7 +46,10 @@ def record_issue(session: Session, *, issue_type: str, message: str,
                   path: str | None = None, user_id: str | None = None,
                   request_id: str | None = None) -> None:
     session.add(AppIssue(
-        issue_type=issue_type, message=message[:8000], path=path,
+        # path is String(256) - truncate it too, same reason as message:
+        # an over-length value here would fail the INSERT itself and lose
+        # the very issue this function exists to durably record.
+        issue_type=issue_type, message=message[:8000], path=path[:256] if path else path,
         user_id=user_id, request_id=request_id,
     ))
     session.flush()
