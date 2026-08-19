@@ -145,24 +145,10 @@ tailwind.config = { theme: { extend: {
       </div>
     </section>
 
-    <!-- streak badge sits above both columns so it never pushes one chart
-         card down relative to the other -->
-    <div class="flex justify-end">
-      <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
-        <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
-        <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
-      </div>
-    </div>
-
-    <!-- charts side by side, each with its own Sort By directly above it.
-         items-stretch (grid default) makes both columns equal height; flex
-         flex-col + flex-1 on the card makes each card fill that height, so
-         the two white boxes always line up and match, whichever content is
-         taller. -->
-    <section class="grid grid-cols-2 gap-sm">
-      <!-- bar chart column -->
-      <div class="flex flex-col gap-sm min-w-0">
-        <div class="flex flex-wrap items-center gap-xs">
+    <!-- chart - donut removed, bar chart expanded to use the freed space -->
+    <section class="space-y-md">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center gap-xs">
           <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
           <select id="h-trend-period" onchange="onTrendPeriodChange(this.value)"
             class="bg-transparent font-label-bold text-label-bold text-on-surface border-none focus:outline-none cursor-pointer">
@@ -171,43 +157,23 @@ tailwind.config = { theme: { extend: {
             <option value="30">30 Days</option>
           </select>
         </div>
-        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm flex-1 flex flex-col">
-          <div class="flex h-36 flex-1">
-            <div id="h-yaxis" class="flex flex-col justify-between text-[10px] text-secondary/60 pb-6 pr-1 font-medium"></div>
-            <div class="flex-1 relative flex flex-col min-w-0">
-              <div class="absolute inset-0 flex flex-col justify-between pb-6 pointer-events-none z-0">
-                <div class="w-full h-px bg-surface-variant/50"></div>
-                <div class="w-full h-px bg-surface-variant/50"></div>
-                <div class="w-full h-px bg-surface-variant/50"></div>
-              </div>
-              <div id="h-bars" class="flex-1 flex items-end justify-between z-10 pb-6 gap-1"></div>
-              <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-[9px] text-secondary/60 font-medium pt-2"></div>
-            </div>
-          </div>
+        <div class="bg-primary-container text-on-primary-container px-md py-xs rounded-full flex items-center gap-xs">
+          <span class="material-symbols-outlined text-label-bold">local_fire_department</span>
+          <span id="h-streak" class="font-label-bold text-label-bold">0 Day Streak</span>
         </div>
       </div>
-
-      <!-- donut chart column - one slice per exercise NAME (duplicates
-           collapsed), not per log -->
-      <div class="flex flex-col gap-sm min-w-0">
-        <div class="flex flex-wrap items-center gap-xs">
-          <span class="font-label-sm text-label-sm text-on-surface-variant">Sort By:</span>
-          <select id="h-pie-period" onchange="onPiePeriodChange(this.value)"
-            class="bg-transparent font-label-bold text-label-bold text-on-surface border-none focus:outline-none cursor-pointer">
-            <option value="7" selected>7 Days</option>
-            <option value="15">15 Days</option>
-            <option value="30">30 Days</option>
-          </select>
-        </div>
-        <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-sm flex-1 flex flex-col items-center justify-center gap-xs">
-          <div class="relative w-28 h-28">
-            <svg id="h-pie" viewBox="0 0 100 100" class="w-28 h-28"></svg>
-            <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-xs">
-              <span id="h-pie-center-name" class="font-label-sm text-label-sm text-on-surface truncate max-w-full"></span>
-              <span id="h-pie-center-pct" class="font-label-bold text-label-bold text-on-surface"></span>
+      <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg">
+        <div class="flex h-64">
+          <div id="h-yaxis" class="flex flex-col justify-between text-xs text-secondary/60 pb-6 pr-4 font-medium"></div>
+          <div class="flex-1 relative flex flex-col">
+            <div class="absolute inset-0 flex flex-col justify-between pb-6 pointer-events-none z-0">
+              <div class="w-full h-px bg-surface-variant/50"></div>
+              <div class="w-full h-px bg-surface-variant/50"></div>
+              <div class="w-full h-px bg-surface-variant/50"></div>
             </div>
+            <div id="h-bars" class="flex-1 flex items-end justify-between z-10 pb-6 gap-4"></div>
+            <div id="h-days" class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-secondary/60 font-medium pt-2"></div>
           </div>
-          <p class="font-label-sm text-label-sm text-on-surface-variant text-center">Tap/hover a slice</p>
         </div>
       </div>
     </section>
@@ -657,95 +623,6 @@ async function onTrendPeriodChange(value) {
   } catch (e) { toast(e.message, true); }
 }
 
-function onPiePeriodChange(value) {
-  loadExerciseBreakdown(value);
-}
-
-// ── exercise breakdown pie chart — one slice per exercise NAME, duplicates
-// collapsed server-side (10 walks is one slice, not ten) ──
-const PIE_PALETTE = [
-  "#2ECC71", // green
-  "#D35400", // dark orange
-  "#9B59B6", // violet
-  "#2980B9", // dark blue
-  "#E74C3C", // red
-  "#1ABC9C", // turquoise
-  "#F39C12", // orange
-  "#34495E", // navy
-  "#E91E63", // pink
-  "#16A085", // teal green
-];
-
-async function loadExerciseBreakdown(days) {
-  try {
-    const d = await api("GET", `/v1/dashboard/exercise-breakdown?days=${days}`);
-    renderExerciseBreakdown(d.breakdown);
-  } catch (e) { toast(e.message, true); }
-}
-
-// Drawn as an interactive SVG donut (not a CSS conic-gradient) specifically
-// because each slice needs its own hover/tap target - a single gradient
-// background has no per-slice element to attach a listener to. No permanent
-// list below it; the center label shows one exercise at a time, defaulting
-// to the largest (items are already sorted by count from the backend).
-let pieItems = [];
-
-function polarToXY(cx, cy, r, angleDeg) {
-  const rad = (angleDeg - 90) * Math.PI / 180; // -90 so 0% starts at 12 o'clock
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-function donutSlicePath(cx, cy, rOuter, rInner, startDeg, endDeg) {
-  const largeArc = (endDeg - startDeg) > 180 ? 1 : 0;
-  const p1 = polarToXY(cx, cy, rOuter, startDeg);
-  const p2 = polarToXY(cx, cy, rOuter, endDeg);
-  const p3 = polarToXY(cx, cy, rInner, endDeg);
-  const p4 = polarToXY(cx, cy, rInner, startDeg);
-  return [
-    `M ${p1.x} ${p1.y}`,
-    `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${p2.x} ${p2.y}`,
-    `L ${p3.x} ${p3.y}`,
-    `A ${rInner} ${rInner} 0 ${largeArc} 0 ${p4.x} ${p4.y}`,
-    "Z",
-  ].join(" ");
-}
-
-function showPieCenter(i) {
-  const item = pieItems[i];
-  if (!item) return;
-  $("h-pie-center-name").textContent = item.name;
-  $("h-pie-center-pct").textContent = item.percentage + "%";
-}
-
-function showPieDefault() {
-  if (pieItems.length) showPieCenter(0); // largest - already sorted by count
-}
-
-function renderExerciseBreakdown(items) {
-  pieItems = items;
-  const svg = $("h-pie");
-
-  if (!items.length) {
-    svg.innerHTML = `<circle cx="50" cy="50" r="38" fill="none" stroke="#e2e2e5" stroke-width="20"/>`;
-    $("h-pie-center-name").textContent = "No data";
-    $("h-pie-center-pct").textContent = "";
-    return;
-  }
-
-  let accDeg = 0;
-  svg.innerHTML = items.map((item, i) => {
-    const color = PIE_PALETTE[i % PIE_PALETTE.length];
-    const startDeg = accDeg;
-    accDeg = Math.min(accDeg + item.percentage * 3.6, 359.999);
-    const d = donutSlicePath(50, 50, 48, 28, startDeg, accDeg);
-    return `<path d="${d}" fill="${color}"
-      onmouseenter="showPieCenter(${i})" onmouseleave="showPieDefault()"
-      onclick="showPieCenter(${i})"></path>`;
-  }).join("");
-
-  showPieDefault();
-}
-
 // ── custom exercises (4.4) — personal, tracking-only, never suggested ──
 let customExercises = [];
 let customSelected = null;
@@ -886,7 +763,6 @@ async function loadHome() {
   const d = await api("GET", "/v1/dashboard/summary");
   $("h-streak").textContent = d.streak.current + " Day Streak";
   renderTrend(prepareTrendData(d.week));
-  loadExerciseBreakdown($("h-pie-period").value);
 
   const items = d.suggestions.all_items || [];
   HOME_ITEMS = items;
