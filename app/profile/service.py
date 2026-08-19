@@ -424,19 +424,29 @@ def log_activity(session: Session, user_id: str, *, activity_type: str | None = 
         custom = session.get(CustomExercise, custom_exercise_id)
         if custom is None or custom.user_id != user_id or custom.deleted_at is not None:
             raise NotFound(f"Unknown custom exercise: {custom_exercise_id}")
-        unit = unit or custom.unit
-        if unit != custom.unit:
-            raise ValidationError(f"{custom.name} is measured in {custom.unit}, not {unit}.")
+        # unit->type is 1:1 (count/km/min never collide), so the unit on this
+        # log tells us which of the exercise's selected types it belongs to -
+        # no separate measurement-type field is needed on the log itself.
+        allowed = {CUSTOM_MEASUREMENT_UNITS[t]: t for t in custom.measurement_types}
+        if unit is None:
+            if len(allowed) != 1:
+                raise ValidationError(
+                    f"{custom.name} tracks more than one thing — specify unit: "
+                    f"{', '.join(sorted(allowed))}.")
+            unit = next(iter(allowed))
+        if unit not in allowed:
+            raise ValidationError(
+                f"{custom.name} is measured in {', '.join(sorted(allowed))}, not {unit}.")
+        measurement_type = allowed[unit]
         if amount <= 0:
             raise ValidationError("Amount must be greater than zero.")
         if sets < 1:
             raise ValidationError("Sets must be at least 1.")
-        if custom.measurement_type in ("distance", "duration") and sets != 1:
+        if measurement_type in ("distance", "duration") and sets != 1:
             raise ValidationError(f"{custom.name} is a single effort, not sets.")
         total = amount * sets
-        implausible = Decimal(str(total)) > custom.plausible_max_total
-        prescription = (f"{sets} x {amount} {custom.unit}" if sets > 1
-                        else f"{amount} {custom.unit}")
+        implausible = Decimal(str(total)) > Decimal(str(CUSTOM_MEASUREMENT_DEFAULT_MAX[measurement_type]))
+        prescription = f"{sets} x {amount} {unit}" if sets > 1 else f"{amount} {unit}"
         row_activity_type = None
     else:
         row = session.get(ActivityTaxonomy, activity_type)
@@ -501,8 +511,10 @@ def _normalise_exercise_name(name: str) -> str:
 
 
 def _custom_exercise_out(row: CustomExercise, *, completed_today: bool = False) -> dict:
-    return {"id": row.id, "name": row.name, "measurement_type": row.measurement_type,
-            "unit": row.unit, "completed_today": completed_today}
+    return {"id": row.id, "name": row.name,
+            "measurement_types": row.measurement_types,
+            "units": [CUSTOM_MEASUREMENT_UNITS[t] for t in row.measurement_types],
+            "completed_today": completed_today}
 
 
 def list_custom_exercises(session: Session, user_id: str) -> list[dict]:
@@ -522,15 +534,22 @@ def list_custom_exercises(session: Session, user_id: str) -> list[dict]:
 
 
 def create_custom_exercise(session: Session, user_id: str, *, name: str,
-                           measurement_type: str) -> dict:
+                           measurement_types: list[str]) -> dict:
     name = (name or "").strip()
     if not name:
         raise ValidationError("Name is required.")
     if len(name) > 64:
         raise ValidationError("Name must be 64 characters or fewer.")
-    if measurement_type not in CUSTOM_MEASUREMENT_UNITS:
+    # De-dup while keeping the order the user picked them in.
+    measurement_types = list(dict.fromkeys(measurement_types or []))
+    if not measurement_types:
+        raise ValidationError("Pick at least one way to count it.")
+    if len(measurement_types) > 3:
+        raise ValidationError("Pick at most 3 ways to count it.")
+    unknown = [m for m in measurement_types if m not in CUSTOM_MEASUREMENT_UNITS]
+    if unknown:
         raise ValidationError(
-            f"measurement_type must be one of: {', '.join(sorted(CUSTOM_MEASUREMENT_UNITS))}")
+            f"measurement_types must be one of: {', '.join(sorted(CUSTOM_MEASUREMENT_UNITS))}")
 
     normalized = _normalise_exercise_name(name)
 
@@ -561,8 +580,7 @@ def create_custom_exercise(session: Session, user_id: str, *, name: str,
 
     row = CustomExercise(
         user_id=user_id, name=name, normalized_name=normalized,
-        measurement_type=measurement_type, unit=CUSTOM_MEASUREMENT_UNITS[measurement_type],
-        plausible_max_total=CUSTOM_MEASUREMENT_DEFAULT_MAX[measurement_type],
+        measurement_types=measurement_types,
     )
     session.add(row)
     session.flush()

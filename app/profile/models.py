@@ -8,7 +8,7 @@ from sqlalchemy import (
     Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer,
     Numeric, String, Text, UniqueConstraint, func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.platform.db import Base
@@ -69,11 +69,12 @@ class CustomExercise(Base):
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     # Lowercased/trimmed, so "Swimming" and "swimming " collide as one entry.
     normalized_name: Mapped[str] = mapped_column(String(64), nullable=False)
-    measurement_type: Mapped[str] = mapped_column(String(16), nullable=False)
-    unit: Mapped[str] = mapped_column(String(16), nullable=False)
-    # Set from the measurement type's default ceiling at creation time (4.6) —
-    # a custom exercise has no reviewed taxonomy row to carry one otherwise.
-    plausible_max_total: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    # 1 to 3 of 'reps'/'distance'/'duration' — a user can track an exercise by
+    # more than one measure at once (e.g. Swimming by both Distance and Time).
+    # unit and plausible_max_total aren't stored: both are fixed per type (see
+    # CUSTOM_MEASUREMENT_UNITS / CUSTOM_MEASUREMENT_DEFAULT_MAX in service.py),
+    # so keeping a copy on the row would just be a second place to drift.
+    measurement_types: Mapped[list[str]] = mapped_column(ARRAY(String(16)), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False)
     # Soft delete (mirrors User.deleted_at): the row stays so past logs that
@@ -87,8 +88,10 @@ class CustomExercise(Base):
         # No DB-level uniqueness here on purpose: a name must stay free to
         # reuse once its old row is soft-deleted, and the service layer
         # already enforces "no two ACTIVE exercises share a name" itself.
-        CheckConstraint("measurement_type IN ('reps','distance','duration')",
-                        name="custom_measurement_known"),
+        CheckConstraint(
+            "measurement_types <@ ARRAY['reps','distance','duration']::varchar[] "
+            "AND array_length(measurement_types, 1) BETWEEN 1 AND 3",
+            name="custom_measurement_known"),
     )
 
 

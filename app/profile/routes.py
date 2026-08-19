@@ -143,7 +143,7 @@ def create_custom_exercise():
         result = service.create_custom_exercise(
             s, g.user_id,
             name=(d.get("name") or "").strip(),
-            measurement_type=(d.get("measurement_type") or "").strip(),
+            measurement_types=d.get("measurement_types") or [],
         )
         return jsonify(result), 201
 

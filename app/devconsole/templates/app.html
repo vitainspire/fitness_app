@@ -429,6 +429,7 @@ const NAV_ON = "fixed bottom-md left-1/2 -translate-x-1/2 w-[90%] max-w-md z-50 
 const DEV = "web-" + (localStorage.getItem("did") || (()=>{const d=Math.random().toString(36).slice(2,10);localStorage.setItem("did",d);return d})());
 let AT = localStorage.getItem("at"), RT = localStorage.getItem("rt"), EMAIL = localStorage.getItem("em") || "";
 let HOME_ITEMS = [];
+let HOME_CUSTOM_ITEMS = [];
 const $ = id => document.getElementById(id);
 
 const ICONS = {
@@ -612,7 +613,7 @@ async function onTrendPeriodChange(value) {
 
 // ── custom exercises (4.4) — personal, tracking-only, never suggested ──
 let customExercises = [];
-let customMeasurementType = null;
+let customMeasurementTypes = []; // 1-3 of CUSTOM_TYPES, in pick order
 let customPhase = "name"; // name -> type
 const CUSTOM_TYPES = [["reps","Reps"],["distance","Distance"],["duration","Time"]];
 
@@ -621,7 +622,7 @@ async function loadCustomExerciseSection() {
   $("custom-err").className = "hidden";
   $("custom-type-wrap").classList.add("hidden");
   $("custom-continue-btn").textContent = "Continue";
-  customMeasurementType = null;
+  customMeasurementTypes = [];
   customPhase = "name";
   const d = await api("GET", "/v1/custom-exercises");
   customExercises = d.custom_exercises;
@@ -642,8 +643,12 @@ function renderCustomList() {
 function renderCustomTypeChips() {
   const box = $("custom-type-chips");
   box.innerHTML = "";
-  CUSTOM_TYPES.forEach(([v, l]) => box.appendChild(chip(l, customMeasurementType === v, () => {
-    customMeasurementType = v;
+  CUSTOM_TYPES.forEach(([v, l]) => box.appendChild(chip(l, customMeasurementTypes.includes(v), () => {
+    if (customMeasurementTypes.includes(v)) {
+      customMeasurementTypes = customMeasurementTypes.filter(x => x !== v);
+    } else {
+      customMeasurementTypes.push(v);
+    }
     renderCustomTypeChips();
   })));
 }
@@ -651,10 +656,11 @@ function renderCustomTypeChips() {
 // Add a New One only ever CREATES the exercise (mirrors exactly how adding a
 // built-in exercise via addFromCatalogue just adds it, never logs it).
 // Logging happens separately, whenever the user actually does it, via its
-// card in the "Your Own Exercises" section on Home.
+// card in the "Your Own Exercises" section on Home. Pick 1, 2, or all 3 of
+// Reps/Distance/Time — the card on Home then asks for all of the ones picked.
 function customContinue() {
   if (customPhase === "type") {
-    if (!customMeasurementType) { toast("Pick how you count it", true); return; }
+    if (!customMeasurementTypes.length) { toast("Pick at least one way to count it", true); return; }
     submitCustomCreate();
     return;
   }
@@ -662,7 +668,7 @@ function customContinue() {
   if (!name) { toast("Type a name first", true); return; }
   const match = customExercises.find(c => c.name.toLowerCase() === name.toLowerCase());
   if (match) { toast(`You already have "${match.name}" — log it from the Home screen`, true); return; }
-  customMeasurementType = null;
+  customMeasurementTypes = [];
   customPhase = "type";
   $("custom-type-wrap").classList.remove("hidden");
   renderCustomTypeChips();
@@ -672,7 +678,7 @@ function customContinue() {
 async function submitCustomCreate() {
   try {
     await api("POST", "/v1/custom-exercises", {
-      name: $("custom-name").value.trim(), measurement_type: customMeasurementType,
+      name: $("custom-name").value.trim(), measurement_types: customMeasurementTypes,
     });
     closeCatalogue();
     toast("Added — log it anytime from the Home screen");
@@ -799,14 +805,37 @@ async function loadHome() {
   // section: creating/logging here only ever calls custom-exercise
   // endpoints, never /v1/program/entries (4.4, 13.1 - tracking-only).
   const { custom_exercises } = await api("GET", "/v1/custom-exercises");
+  HOME_CUSTOM_ITEMS = custom_exercises;
   $("h-custom-section").classList.toggle("hidden", !custom_exercises.length);
   $("h-custom-cards").innerHTML = custom_exercises.map(renderCustomCard).join("");
 }
 
+const CUSTOM_TYPE_LABEL = { reps: "Reps", distance: "Distance", duration: "Time" };
+
 function renderCustomCard(c) {
-  const single = c.measurement_type === "distance" || c.measurement_type === "duration";
-  const amountLabel = c.measurement_type === "reps" ? "Reps"
-                    : c.measurement_type === "distance" ? `Distance (${c.unit})` : "Minutes";
+  // 1-3 measurement types, each picked at creation — every one of them gets
+  // its own Sets/Amount pair here, and Save logs all of them together.
+  const blocks = c.measurement_types.map((mt, i) => {
+    const unit = c.units[i];
+    const single = mt === "distance" || mt === "duration";
+    const amountLabel = mt === "reps" ? "Reps" : `${CUSTOM_TYPE_LABEL[mt]} (${unit})`;
+    return `
+    <div class="grid grid-cols-2 gap-sm items-stretch">
+      <div class="space-y-xs flex flex-col min-w-0">
+        <label class="text-label-sm text-secondary truncate block h-4 mb-1">Sets</label>
+        ${single
+          ? `<div class="bg-surface-container-low rounded-DEFAULT h-10 flex items-center justify-center"><span class="font-body-md text-on-surface-variant text-xs">—</span></div>`
+          : `<input id="cc-sets-${c.id}-${mt}" type="number" min="1" value="1"
+               class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">`}
+      </div>
+      <div class="space-y-xs flex flex-col min-w-0">
+        <label class="text-label-sm text-secondary truncate block h-4 mb-1">${amountLabel}</label>
+        <input id="cc-amount-${c.id}-${mt}" type="number" step="any"
+          class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">
+      </div>
+    </div>`;
+  }).join("");
+
   return `
   <div class="bg-surface-container-lowest ambient-shadow rounded-lg p-md space-y-md flex flex-col">
     <div class="space-y-xs">
@@ -822,38 +851,36 @@ function renderCustomCard(c) {
         <span class="font-body-md text-on-surface text-sm truncate">${c.name}</span>
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-sm items-stretch">
-      <div class="space-y-xs flex flex-col min-w-0">
-        <label class="text-label-sm text-secondary truncate block h-4 mb-1">Sets</label>
-        ${single
-          ? `<div class="bg-surface-container-low rounded-DEFAULT h-10 flex items-center justify-center"><span class="font-body-md text-on-surface-variant text-xs">—</span></div>`
-          : `<input id="cc-sets-${c.id}" type="number" min="1" value="1"
-               class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">`}
-      </div>
-      <div class="space-y-xs flex flex-col min-w-0">
-        <label class="text-label-sm text-secondary truncate block h-4 mb-1">${amountLabel}</label>
-        <input id="cc-amount-${c.id}" type="number" step="any"
-          class="bg-surface-container-low border-none rounded-DEFAULT h-10 text-center font-body-md text-on-surface w-full px-xs">
-      </div>
-    </div>
+    ${blocks}
     <div class="flex-1"></div>
-    <button onclick="logCustomCard('${c.id}', ${single})"
+    <button onclick="logCustomCard('${c.id}')"
       class="w-full ${c.completed_today ? 'bg-surface-container-low text-on-surface-variant' : 'bg-primary text-on-primary'} py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
       ${c.completed_today ? 'Logged today' : 'Save Activity'}
     </button>
   </div>`;
 }
 
-async function logCustomCard(id, single) {
-  const amount = parseFloat($("cc-amount-" + id).value);
-  const sets = single ? 1 : (parseInt($("cc-sets-" + id).value, 10) || 1);
-  if (!amount || amount <= 0) { toast("Enter an amount", true); return; }
+async function logCustomCard(id) {
+  const c = HOME_CUSTOM_ITEMS.find(x => x.id === id);
+  if (!c) return;
+  const entries = [];
+  for (let i = 0; i < c.measurement_types.length; i++) {
+    const mt = c.measurement_types[i], unit = c.units[i];
+    const single = mt === "distance" || mt === "duration";
+    const amount = parseFloat($(`cc-amount-${id}-${mt}`).value);
+    const sets = single ? 1 : (parseInt($(`cc-sets-${id}-${mt}`).value, 10) || 1);
+    if (!amount || amount <= 0) {
+      toast(`Enter a ${CUSTOM_TYPE_LABEL[mt].toLowerCase()} value`, true);
+      return;
+    }
+    entries.push({custom_exercise_id: id, amount, sets, unit});
+  }
   try {
-    const d = await api("POST", "/v1/activities", {custom_exercise_id: id, amount, sets});
-    const l = d.logged[0];
-    toast(l.implausible
-      ? "Saved — that looks unusual, so it won't count towards progress"
-      : `Saved ${l.prescription} · ${d.streak.current} day streak`, l.implausible);
+    const d = await api("POST", "/v1/activities", {entries});
+    const anyImplausible = d.logged.some(l => l.implausible);
+    toast(anyImplausible
+      ? "Saved — some of that looks unusual, so it won't count towards progress"
+      : `Saved · ${d.streak.current} day streak`, anyImplausible);
     loadHome();
   } catch (e) { toast(e.message, true); }
 }
