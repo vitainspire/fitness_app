@@ -503,7 +503,7 @@ function renderNotifBadge() {
 function loadNotifications() {
   $("n-body").innerHTML = NOTIFICATIONS.length ? NOTIFICATIONS.map(n => `
     <div class="bg-surface-container-lowest ambient-shadow rounded-DEFAULT p-md">
-      <p class="font-body-md text-on-surface">${n.message}</p>
+      <p class="font-body-md text-on-surface">${escapeHtml(n.message)}</p>
     </div>`).join("")
     : `<div class="bg-surface-container-lowest ambient-shadow rounded-lg p-lg font-body-md text-on-surface-variant text-center">No notifications yet.</div>`;
 }
@@ -613,7 +613,13 @@ function prepareTrendData(daily) {
   return daily.length > TREND_DAILY_LIMIT ? toWeeklyBuckets(daily) : daily;
 }
 
+// Tracks the dropdown's current selection so loadHome() (called after every
+// log/add/remove/rename — not just on page load) can keep showing whatever
+// period the user picked, instead of always reverting to 7 days.
+let currentTrendDays = 7;
+
 async function onTrendPeriodChange(value) {
+  currentTrendDays = Number(value);
   try {
     const d = await api("GET", `/v1/dashboard/trend?days=${value}`);
     renderTrend(prepareTrendData(d.trend));
@@ -735,7 +741,14 @@ async function loadHome() {
 
   const d = await api("GET", "/v1/dashboard/summary");
   $("h-streak").textContent = d.streak.current + " Day Streak";
-  renderTrend(prepareTrendData(d.week));
+  if (currentTrendDays === 7) {
+    renderTrend(prepareTrendData(d.week));
+  } else {
+    // The user has a longer period selected — re-fetch that instead of
+    // silently reverting the chart to 7 days while the dropdown still shows
+    // their actual choice.
+    onTrendPeriodChange(currentTrendDays);
+  }
 
   const items = d.suggestions.all_items || [];
   HOME_ITEMS = items;

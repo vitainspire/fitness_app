@@ -542,6 +542,18 @@ def list_custom_exercises(session: Session, user_id: str) -> list[dict]:
     return [_custom_exercise_out(r, completed_today=r.id in done_today) for r in rows]
 
 
+def _reject_if_matches_taxonomy(session: Session, normalized: str, label: str) -> None:
+    """Dedup against the official taxonomy (4.4) — "jogging" must resolve to
+    the real `run` activity, never spawn a personal duplicate of it. Shared by
+    create and rename so the matching rule can't drift between the two."""
+    for t in session.scalars(select(ActivityTaxonomy)).all():
+        synonyms = {s.lower() for s in (t.synonyms or [])}
+        if normalized == t.display_name.lower() or normalized in synonyms:
+            raise ValidationError(
+                f'"{label}" matches the built-in activity "{t.display_name}" — log that instead.'
+            )
+
+
 def create_custom_exercise(session: Session, user_id: str, *, name: str,
                            measurement_types: list[str]) -> dict:
     name = (name or "").strip()
@@ -561,15 +573,7 @@ def create_custom_exercise(session: Session, user_id: str, *, name: str,
             f"measurement_types must be one of: {', '.join(sorted(CUSTOM_MEASUREMENT_UNITS))}")
 
     normalized = _normalise_exercise_name(name)
-
-    # Dedup against the official taxonomy first (4.4) — "jogging" must resolve
-    # to the real `run` activity, never spawn a personal duplicate of it.
-    for t in session.scalars(select(ActivityTaxonomy)).all():
-        synonyms = {s.lower() for s in (t.synonyms or [])}
-        if normalized == t.display_name.lower() or normalized in synonyms:
-            raise ValidationError(
-                f'"{name}" matches the built-in activity "{t.display_name}" — log that instead.'
-            )
+    _reject_if_matches_taxonomy(session, normalized, name)
 
     existing = session.scalar(
         select(CustomExercise).where(
@@ -607,16 +611,7 @@ def rename_custom_exercise(session: Session, user_id: str, exercise_id: str,
     if len(new_name) > 64:
         raise ValidationError("Name must be 64 characters or fewer.")
     normalized = _normalise_exercise_name(new_name)
-
-    # Same taxonomy check create_custom_exercise applies (4.4) — otherwise a
-    # rename can shadow a real built-in activity that the create path would
-    # have refused outright.
-    for t in session.scalars(select(ActivityTaxonomy)).all():
-        synonyms = {s.lower() for s in (t.synonyms or [])}
-        if normalized == t.display_name.lower() or normalized in synonyms:
-            raise ValidationError(
-                f'"{new_name}" matches the built-in activity "{t.display_name}" — log that instead.'
-            )
+    _reject_if_matches_taxonomy(session, normalized, new_name)
 
     clash = session.scalar(
         select(CustomExercise).where(
