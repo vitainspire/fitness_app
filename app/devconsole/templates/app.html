@@ -838,8 +838,8 @@ function renderCustomCard(c) {
     </div>
     <div class="flex-1"></div>
     <button onclick="logCustomCard('${c.id}', ${single})"
-      class="w-full bg-primary text-on-primary py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
-      Save Activity
+      class="w-full ${c.completed_today ? 'bg-surface-container-low text-on-surface-variant' : 'bg-primary text-on-primary'} py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
+      ${c.completed_today ? 'Logged today' : 'Save Activity'}
     </button>
   </div>`;
 }

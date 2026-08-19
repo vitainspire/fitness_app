@@ -496,9 +496,9 @@ def _normalise_exercise_name(name: str) -> str:
     return " ".join(name.strip().lower().split())
 
 
-def _custom_exercise_out(row: CustomExercise) -> dict:
+def _custom_exercise_out(row: CustomExercise, *, completed_today: bool = False) -> dict:
     return {"id": row.id, "name": row.name, "measurement_type": row.measurement_type,
-            "unit": row.unit}
+            "unit": row.unit, "completed_today": completed_today}
 
 
 def list_custom_exercises(session: Session, user_id: str) -> list[dict]:
@@ -507,7 +507,14 @@ def list_custom_exercises(session: Session, user_id: str) -> list[dict]:
                                       CustomExercise.deleted_at.is_(None))
         .order_by(CustomExercise.created_at)
     ).all()
-    return [_custom_exercise_out(r) for r in rows]
+    # Same "done today" concept the built-in cards already use (suggestions_today).
+    done_today = set(session.scalars(
+        select(ActivityLog.custom_exercise_id).where(
+            ActivityLog.user_id == user_id,
+            ActivityLog.local_date == today_ist(),
+            ActivityLog.custom_exercise_id.is_not(None))
+    ).all())
+    return [_custom_exercise_out(r, completed_today=r.id in done_today) for r in rows]
 
 
 def create_custom_exercise(session: Session, user_id: str, *, name: str,
