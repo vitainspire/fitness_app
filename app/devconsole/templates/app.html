@@ -415,19 +415,6 @@ tailwind.config = { theme: { extend: {
         <div id="custom-type-chips" class="flex flex-wrap gap-xs mt-xs"></div>
       </div>
 
-      <div id="custom-amount-wrap" class="hidden flex-col gap-md">
-        <div>
-          <label id="custom-amount-label" class="font-label-bold text-label-bold text-on-surface">Amount</label>
-          <input id="custom-amount" type="number"
-            class="w-full mt-xs bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
-        </div>
-        <div id="custom-sets-wrap">
-          <label class="font-label-bold text-label-bold text-on-surface">Sets</label>
-          <input id="custom-sets" type="number" value="1" min="1"
-            class="w-full mt-xs bg-surface-container-low border-none rounded-lg px-md py-sm font-body-md text-body-md focus:ring-2 focus:ring-primary-fixed focus:outline-none">
-        </div>
-      </div>
-
       <p id="custom-err" class="hidden font-body-md text-on-error-container bg-error-container rounded px-sm py-xs"></p>
 
       <button id="custom-continue-btn" onclick="customContinue()" class="w-full bg-primary text-on-primary py-md rounded-full font-label-bold text-label-bold hover:opacity-90">
@@ -625,22 +612,15 @@ async function onTrendPeriodChange(value) {
 
 // ── custom exercises (4.4) — personal, tracking-only, never suggested ──
 let customExercises = [];
-let customSelected = null;
 let customMeasurementType = null;
-let customPhase = "name"; // name -> type -> amount
-const CUSTOM_UNIT = {reps: "count", distance: "km", duration: "min"};
+let customPhase = "name"; // name -> type
 const CUSTOM_TYPES = [["reps","Reps"],["distance","Distance"],["duration","Time"]];
 
 async function loadCustomExerciseSection() {
   $("custom-name").value = "";
-  $("custom-amount").value = "";
-  $("custom-sets").value = "1";
   $("custom-err").className = "hidden";
   $("custom-type-wrap").classList.add("hidden");
-  $("custom-amount-wrap").classList.add("hidden");
-  $("custom-amount-wrap").classList.remove("flex");
   $("custom-continue-btn").textContent = "Continue";
-  customSelected = null;
   customMeasurementType = null;
   customPhase = "name";
   const d = await api("GET", "/v1/custom-exercises");
@@ -652,7 +632,7 @@ function renderCustomList() {
   const box = $("custom-list");
   box.innerHTML = customExercises.length ? customExercises.map(c => `
     <div class="flex items-center justify-between bg-surface-container rounded-DEFAULT px-md py-sm">
-      <button onclick="selectCustomForLogging('${c.id}')" class="font-label-bold text-label-bold text-on-surface text-left flex-1">${c.name}</button>
+      <span class="font-label-bold text-label-bold text-on-surface flex-1">${c.name}</span>
       <button onclick="renameCustomPrompt('${c.id}', '${c.name.replace(/'/g, "\\'")}')" aria-label="Rename" class="text-on-surface-variant px-xs"><span class="material-symbols-outlined text-[18px]">edit</span></button>
       <button onclick="deleteCustomExercise('${c.id}')" aria-label="Delete" class="text-on-surface-variant px-xs"><span class="material-symbols-outlined text-[18px]">delete</span></button>
     </div>`).join("")
@@ -668,61 +648,34 @@ function renderCustomTypeChips() {
   })));
 }
 
-function showCustomAmountStep(type, unit) {
-  $("custom-type-wrap").classList.add("hidden");
-  $("custom-amount-wrap").classList.remove("hidden");
-  $("custom-amount-wrap").classList.add("flex");
-  $("custom-amount-label").textContent =
-    type === "reps" ? "Reps" : type === "distance" ? `Distance (${unit})` : "Minutes";
-  $("custom-sets-wrap").classList.toggle("hidden", type !== "reps");
-  $("custom-continue-btn").textContent = "Save";
-  customPhase = "amount";
-}
-
-function selectCustomForLogging(id) {
-  const c = customExercises.find(x => x.id === id);
-  if (!c) return;
-  customSelected = c;
-  customMeasurementType = c.measurement_type;
-  showCustomAmountStep(c.measurement_type, c.unit);
-}
-
+// Add a New One only ever CREATES the exercise (mirrors exactly how adding a
+// built-in exercise via addFromCatalogue just adds it, never logs it).
+// Logging happens separately, whenever the user actually does it, via its
+// card in the "Your Own Exercises" section on Home.
 function customContinue() {
-  if (customPhase === "amount") { submitCustomLog(); return; }
   if (customPhase === "type") {
     if (!customMeasurementType) { toast("Pick how you count it", true); return; }
-    showCustomAmountStep(customMeasurementType, CUSTOM_UNIT[customMeasurementType]);
+    submitCustomCreate();
     return;
   }
   const name = $("custom-name").value.trim();
   if (!name) { toast("Type a name first", true); return; }
   const match = customExercises.find(c => c.name.toLowerCase() === name.toLowerCase());
-  if (match) { selectCustomForLogging(match.id); return; }
+  if (match) { toast(`You already have "${match.name}" — log it from the Home screen`, true); return; }
   customMeasurementType = null;
   customPhase = "type";
   $("custom-type-wrap").classList.remove("hidden");
   renderCustomTypeChips();
-  $("custom-continue-btn").textContent = "Next";
+  $("custom-continue-btn").textContent = "Save";
 }
 
-async function submitCustomLog() {
-  const amount = parseFloat($("custom-amount").value);
-  const sets = customMeasurementType === "reps" ? (parseInt($("custom-sets").value, 10) || 1) : 1;
-  if (!amount || amount <= 0) { toast("Enter an amount", true); return; }
+async function submitCustomCreate() {
   try {
-    let exerciseId = customSelected ? customSelected.id : null;
-    if (!exerciseId) {
-      const created = await api("POST", "/v1/custom-exercises", {
-        name: $("custom-name").value.trim(), measurement_type: customMeasurementType,
-      });
-      exerciseId = created.id;
-    }
-    const d = await api("POST", "/v1/activities", {custom_exercise_id: exerciseId, amount, sets});
+    await api("POST", "/v1/custom-exercises", {
+      name: $("custom-name").value.trim(), measurement_type: customMeasurementType,
+    });
     closeCatalogue();
-    const l = d.logged[0];
-    toast(l.implausible
-      ? "Saved — that looks unusual, so it won't count towards progress"
-      : `Saved ${l.prescription} · ${d.streak.current} day streak`, l.implausible);
+    toast("Added — log it anytime from the Home screen");
     loadHome();
   } catch (e) {
     $("custom-err").textContent = e.message;
